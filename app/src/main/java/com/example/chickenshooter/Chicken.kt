@@ -1,35 +1,33 @@
 package com.example.chickenshooter
 
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Rect
 
 class Chicken(
-    x: Int,
-    y: Int,
-    bitmap: Bitmap,
-    private val speed: Int,
-    private val moveType: Int,
-    var hp: Int = 3
-) : GameObject(x, y, bitmap) {
+    var x: Int,
+    var y: Int,
+    val bitmap: Bitmap,
+    val speed: Int,
+    val moveType: Int,
+    var hp: Int
+) {
     private var tick = 0
-    override fun update() {
+
+    fun update() {
         tick++
         when (moveType) {
-            0 -> y += speed // đi thẳng xuống
-            1 -> { // zigzag
-                y += speed
-                x += (Math.sin(tick / 10.0) * 10).toInt()
-            }
-            2 -> { // lượn sóng
-                y += speed
-                x += (Math.sin(tick / 5.0) * 20).toInt()
-            }
-            3 -> { // kiểu đặc biệt (cosine)
-                y += speed
-                x += (Math.cos(tick / 8.0) * 15).toInt()
-            }
-            else -> { // dự phòng cho các moveType khác
-                y += speed
-            }
+            0 -> { y += speed }
+            1 -> { y += speed; x += (Math.sin(tick / 10.0) * 10).toInt() }
+            2 -> { y += speed; x += (Math.cos(tick / 8.0) * 14).toInt() }
+            3 -> { y += speed + (tick % 3) }
+            else -> { y += speed }
         }
+    }
+
+    fun getRect(): Rect = Rect(x, y, x + bitmap.width, y + bitmap.height)
+
+    fun draw(canvas: Canvas) {
+        canvas.drawBitmap(bitmap, x.toFloat(), y.toFloat(), null)
     }
 }

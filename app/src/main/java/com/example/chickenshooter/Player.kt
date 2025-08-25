@@ -1,10 +1,16 @@
 package com.example.chickenshooter
 
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Rect
 
-class Player(x: Int, y: Int, bitmap: Bitmap) : GameObject(x, y, bitmap) {
-    fun move(dx: Int, dy: Int, screenWidth: Int, screenHeight: Int) {
-        x = (x + dx).coerceIn(0, screenWidth - bitmap.width)
-        y = (y + dy).coerceIn(0, screenHeight - bitmap.height)
+class Player(
+    var x: Int,
+    var y: Int,
+    var bitmap: Bitmap
+) {
+    fun getRect(): Rect = Rect(x, y, x + bitmap.width, y + bitmap.height)
+    fun draw(canvas: Canvas) {
+        canvas.drawBitmap(bitmap, x.toFloat(), y.toFloat(), null)
     }
 }

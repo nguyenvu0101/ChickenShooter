@@ -15,14 +15,8 @@ class BossChicken(
         y += speed
     }
 
-    fun getRect(): Rect {
-        return Rect(x, y, x + bitmap.width, y + bitmap.height)
-    }
-
+    fun getRect(): Rect = Rect(x, y, x + bitmap.width, y + bitmap.height)
     fun draw(canvas: Canvas) {
         canvas.drawBitmap(bitmap, x.toFloat(), y.toFloat(), null)
-    }
-    fun getBitmap(): Bitmap {
-        return bitmap
     }
 }
