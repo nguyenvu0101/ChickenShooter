@@ -12,14 +12,21 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.ChickenShooter"
         tools:targetApi="31">
+
+        <!-- MainActivity: cần khai báo ở đây để có thể mở được từ StartMenuActivity -->
         <activity
             android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.ChickenShooter"/>
+
+        <activity
+            android:name=".StartMenuActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.ChickenShooter">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>

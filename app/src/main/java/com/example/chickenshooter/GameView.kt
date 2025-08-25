@@ -10,16 +10,15 @@ import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import com.example.chickenshooter.levels.*
-import com.example.chickenshooter.GunMode
 import android.media.SoundPool
 
 enum class GunMode {
     NORMAL, FAST, TRIPLE_PARALLEL, TRIPLE_SPREAD
 }
 
-class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback {
+class GameView(context: Context, private val backgroundId: Int, planeId: Int) : SurfaceView(context), SurfaceHolder.Callback {
     private val thread: GameThread
-    private val playerBitmap = BitmapFactory.decodeResource(resources, R.drawable.player)
+    private val playerBitmap = BitmapFactory.decodeResource(resources, planeId)
     private val bulletBitmap = BitmapFactory.decodeResource(resources, R.drawable.bullet)
     private val itemBitmaps = listOf(
         BitmapFactory.decodeResource(resources, R.drawable.item_fast),
@@ -68,11 +67,11 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback 
     fun startLevel(newLevel: Int) {
         level = newLevel
         currentLevel = when (level) {
-            1 -> Level1(context, player, bulletBitmap, itemBitmaps)
-            2 -> Level2(context, player, bulletBitmap, itemBitmaps)
-            3 -> Level3(context, player, bulletBitmap, itemBitmaps)
-            4 -> Level4(context, player, bulletBitmap, itemBitmaps)
-            else -> Level1(context, player, bulletBitmap, itemBitmaps)
+            1 -> Level1(context, player, bulletBitmap, itemBitmaps, backgroundId)
+            2 -> Level2(context, player, bulletBitmap, itemBitmaps, backgroundId)
+            3 -> Level3(context, player, bulletBitmap, itemBitmaps, backgroundId)
+            4 -> Level4(context, player, bulletBitmap, itemBitmaps, backgroundId)
+            else -> Level1(context, player, bulletBitmap, itemBitmaps, backgroundId)
         }
         currentLevel.reset()
         bullets.clear()
@@ -159,12 +158,11 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback 
             }
         }
 
-        // **BỔ SUNG: Kiểm tra nếu màn đã hoàn thành thì chuyển màn**
+        // Kiểm tra nếu màn đã hoàn thành thì chuyển màn
         if (currentLevel.isCompleted()) {
             if (level < maxLevel) {
                 startLevel(level + 1)
             } else {
-                // Nếu hết màn, bạn có thể show thông báo hoặc dừng game
                 isLevelChanging = true
             }
         }

@@ -11,9 +11,11 @@ class Level1(
     context: Context,
     player: Player,
     bulletBitmap: Bitmap,
-    itemBitmaps: List<Bitmap>
+    itemBitmaps: List<Bitmap>,
+    private val backgroundId: Int
 ) : BaseLevel(context, player, bulletBitmap, itemBitmaps) {
-    private val background = BitmapFactory.decodeResource(context.resources, R.drawable.background)
+
+    private val background = BitmapFactory.decodeResource(context.resources, backgroundId)
     private val chickenBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.chicken1)
     private val bossExplosionFrames = listOf(
         BitmapFactory.decodeResource(context.resources, R.drawable.playership1_damage1),
@@ -34,15 +36,14 @@ class Level1(
         chickenBitmap.height * 2 / 5,
         true
     )
-    private val bossBitmap = BitmapFactory.decodeResource(context.resources,
-        R.drawable.boss_chicken
-    )
+    private val bossBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.boss_chicken)
     private val bossScaledBitmap = Bitmap.createScaledBitmap(
         bossBitmap,
         bossBitmap.width * 3 / 5,
         bossBitmap.height * 3 / 5,
         true
     )
+
     private val chickens = mutableListOf<Chicken>()
     private val items = mutableListOf<Item>()
     private var boss: BossChicken? = null

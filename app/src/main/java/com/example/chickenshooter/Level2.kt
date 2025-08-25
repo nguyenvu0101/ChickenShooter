@@ -11,9 +11,10 @@ class Level2(
     context: Context,
     player: Player,
     bulletBitmap: Bitmap,
-    itemBitmaps: List<Bitmap>
+    itemBitmaps: List<Bitmap>,
+    private val backgroundId: Int
 ) : BaseLevel(context, player, bulletBitmap, itemBitmaps) {
-    private val background = BitmapFactory.decodeResource(context.resources, R.drawable.background)
+    private val background = BitmapFactory.decodeResource(context.resources, backgroundId)
     private val chickenBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.chicken2)
     private val scaledChickenBitmap = Bitmap.createScaledBitmap(
         chickenBitmap,
