@@ -10,8 +10,8 @@ android {
 
     defaultConfig {
         applicationId = "com.example.chickenshooter"
-        minSdk = 36
-        targetSdk = 36
+        minSdk =29
+        targetSdk = 29
         versionCode = 1
         versionName = "1.0"
 
