@@ -7,6 +7,25 @@ import android.graphics.Canvas
 import com.example.chickenshooter.*
 import com.example.chickenshooter.utils.CollisionUtils
 
+// --- Coin class ---
+class Coin(var x: Int, var y: Int, val bitmap: Bitmap) {
+    var isCollected = false
+
+    fun update() {
+        y += 10 // tốc độ rơi, có thể chỉnh cho phù hợp
+    }
+
+    fun draw(canvas: Canvas) {
+        if (!isCollected) {
+            canvas.drawBitmap(bitmap, x.toFloat(), y.toFloat(), null)
+        }
+    }
+
+    fun getRect(): android.graphics.Rect {
+        return android.graphics.Rect(x, y, x + bitmap.width, y + bitmap.height)
+    }
+}
+
 class Level1(
     context: Context,
     player: Player,
@@ -17,6 +36,8 @@ class Level1(
 
     private val background = BitmapFactory.decodeResource(context.resources, backgroundId)
     private val chickenBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.chicken1)
+    private val coinBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.coin)
+
     private val bossExplosionFrames = listOf(
         BitmapFactory.decodeResource(context.resources, R.drawable.playership1_damage1),
         BitmapFactory.decodeResource(context.resources, R.drawable.playership1_damage2),
@@ -36,6 +57,12 @@ class Level1(
         chickenBitmap.height * 2 / 5,
         true
     )
+    private val scaledCoinBitmap = Bitmap.createScaledBitmap(
+        coinBitmap,
+        scaledChickenBitmap.width * 4 / 5,
+        scaledChickenBitmap.height * 4 / 5,
+        true
+    )
     private val bossBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.boss_chicken)
     private val bossScaledBitmap = Bitmap.createScaledBitmap(
         bossBitmap,
@@ -46,6 +73,7 @@ class Level1(
 
     private val chickens = mutableListOf<Chicken>()
     private val items = mutableListOf<Item>()
+    private val coins = mutableListOf<Coin>()
     private var boss: BossChicken? = null
     private var isBossSpawned = false
 
@@ -96,6 +124,10 @@ class Level1(
         items.forEach { it.update() }
         items.removeAll { it.y > context.resources.displayMetrics.heightPixels }
 
+        // Update coins
+        coins.forEach { it.update() }
+        coins.removeAll { it.y > context.resources.displayMetrics.heightPixels || it.isCollected }
+
         // Bullet - Chicken collision
         val deadChickens = mutableListOf<Chicken>()
         val usedBullets = mutableListOf<Bullet>()
@@ -111,6 +143,8 @@ class Level1(
                             val itemType = (0..2).random()
                             items.add(Item(chicken.x, chicken.y, itemBitmaps[itemType], itemType))
                         }
+                        // Luôn drop coin khi chết (hoặc bạn có thể random)
+                        coins.add(Coin(chicken.x, chicken.y, scaledCoinBitmap))
                     }
                 }
             }
@@ -136,6 +170,13 @@ class Level1(
             }
         }
         items.removeAll(collectedItems)
+
+        // Player - Coin collision
+        val collectedCoins = coins.filter { !it.isCollected && CollisionUtils.isColliding(it.getRect(), player.getRect()) }
+        for (coin in collectedCoins) {
+            coin.isCollected = true
+            player.gold += 1 // giả sử player có biến gold, nếu chưa có hãy thêm vào class Player
+        }
 
         // Boss spawn rồi thì update boss và kiểm tra va chạm
         boss?.let { b ->
@@ -169,6 +210,7 @@ class Level1(
         chickens.forEach { it.draw(canvas) }
         bullets.forEach { it.draw(canvas) }
         items.forEach { it.draw(canvas) }
+        coins.forEach { it.draw(canvas) }
         boss?.draw(canvas)
     }
 
@@ -176,6 +218,7 @@ class Level1(
     override fun reset() {
         chickens.clear()
         items.clear()
+        coins.clear()
         boss = null
         isBossSpawned = false
         lives = 3
