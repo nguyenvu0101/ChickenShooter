@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "37981865117",
+    "project_id": "chickenshooter-bd531",
+    "storage_bucket": "chickenshooter-bd531.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:37981865117:android:a6aba4eb895873ec800074",
+        "android_client_info": {
+          "package_name": "com.example.chickenshooter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA87hHgi2gFUiATUeMaWk2LFCJyWtwUMqk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

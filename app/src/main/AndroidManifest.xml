@@ -2,6 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Quyền mạng cho Firebase -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -13,23 +16,37 @@
         android:theme="@style/Theme.ChickenShooter"
         tools:targetApi="31">
 
-        <!-- MainActivity: cần khai báo ở đây để có thể mở được từ StartMenuActivity -->
+        <!-- 1) Màn chọn chế độ -->
         <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:label="@string/app_name"
-            android:theme="@style/Theme.ChickenShooter"/>
-
-        <activity
-            android:name=".StartMenuActivity"
+            android:name=".ModeSelectActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.ChickenShooter">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-    </application>
 
+        <!-- 2) Login (Online) -->
+        <activity
+            android:name=".LoginActivity"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.ChickenShooter" />
+
+        <!-- 3) Start Menu -->
+        <activity
+            android:name=".StartMenuActivity"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.ChickenShooter" />
+
+        <!-- 4) Game -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.ChickenShooter" />
+    </application>
 </manifest>

@@ -1,3 +1,4 @@
+package com.example.chickenshooter
 import android.graphics.Bitmap
 import android.graphics.Canvas
 
