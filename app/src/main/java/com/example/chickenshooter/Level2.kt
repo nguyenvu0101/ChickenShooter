@@ -12,16 +12,43 @@ class Level2(
     player: Player,
     bulletBitmap: Bitmap,
     itemBitmaps: List<Bitmap>,
+    coinBmp: Bitmap,                            // đổi tên tham số để không trùng
     private val backgroundId: Int
-) : BaseLevel(context, player, bulletBitmap, itemBitmaps) {
+) : BaseLevel(context, player, bulletBitmap, itemBitmaps, coinBmp) {
+
     private val background = BitmapFactory.decodeResource(context.resources, backgroundId)
     private val chickenBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.chicken2)
+    private val eggBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.egg)
+
+    private val bossExplosionFrames = listOf(
+        BitmapFactory.decodeResource(context.resources, R.drawable.playership1_damage1),
+        BitmapFactory.decodeResource(context.resources, R.drawable.playership1_damage2),
+        BitmapFactory.decodeResource(context.resources, R.drawable.playership1_damage3),
+        BitmapFactory.decodeResource(context.resources, R.drawable.playership2_damage1),
+        BitmapFactory.decodeResource(context.resources, R.drawable.playership2_damage2),
+        BitmapFactory.decodeResource(context.resources, R.drawable.playership2_damage3),
+        BitmapFactory.decodeResource(context.resources, R.drawable.playership3_damage1),
+        BitmapFactory.decodeResource(context.resources, R.drawable.playership3_damage2),
+        BitmapFactory.decodeResource(context.resources, R.drawable.playership3_damage3)
+    )
+    private val explosions = mutableListOf<Explosion>()
+    private var bossExplosionStarted = false
+
     private val scaledChickenBitmap = Bitmap.createScaledBitmap(
         chickenBitmap,
         chickenBitmap.width * 2 / 5,
         chickenBitmap.height * 2 / 5,
         true
     )
+
+    // coin dùng bitmap từ tham số coinBmp (đã truyền vào BaseLevel)
+    private val scaledCoinBitmap = Bitmap.createScaledBitmap(
+        coinBmp,
+        (chickenBitmap.width * 2 / 5) * 4 / 5,
+        (chickenBitmap.height * 2 / 5) * 4 / 5,
+        true
+    )
+
     private val bossBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.boss_chicken)
     private val bossScaledBitmap = Bitmap.createScaledBitmap(
         bossBitmap,
@@ -29,8 +56,17 @@ class Level2(
         bossBitmap.height * 3 / 5,
         true
     )
+
+    private val scaledEggBitmap = Bitmap.createScaledBitmap(
+        eggBitmap,
+        scaledCoinBitmap.width + 5,
+        scaledCoinBitmap.height + 5,
+        true
+    )
+
     private val chickens = mutableListOf<Chicken>()
     private val items = mutableListOf<Item>()
+    private val eggs = mutableListOf<Egg>()       // trứng boss
     private var boss: BossChicken? = null
     private var isBossSpawned = false
 
@@ -41,7 +77,6 @@ class Level2(
     private var lives = 3
     private var isLevelFinished = false
 
-    // Đếm thời gian màn chơi (1 phút = 60 * 60 frame)
     private var levelTimer = 0
     private val levelDuration = 20 * 60
 
@@ -52,19 +87,20 @@ class Level2(
 
         levelTimer++
 
-        // Spawn boss đúng sau 1 phút
+        // Spawn boss sau khi hết thời gian
         if (!isBossSpawned && levelTimer >= levelDuration) {
             boss = BossChicken(
                 x = (context.resources.displayMetrics.widthPixels - bossScaledBitmap.width) / 2,
                 y = 50,
                 bitmap = bossScaledBitmap,
-                hp = 30,
-                speed = 4
+                hp = 200,
+                speed = 4,
+                eggBitmap = eggBitmap
             )
             isBossSpawned = true
         }
 
-        // Chỉ spawn quái thường khi chưa có boss
+        // Spawn gà thường khi chưa có boss
         if (!isBossSpawned) {
             spawnCooldown++
             if (spawnCooldown >= spawnInterval) {
@@ -81,7 +117,7 @@ class Level2(
         items.forEach { it.update() }
         items.removeAll { it.y > context.resources.displayMetrics.heightPixels }
 
-        // Bullet - Chicken collision
+        // Bullet - Chicken
         val deadChickens = mutableListOf<Chicken>()
         val usedBullets = mutableListOf<Bullet>()
         for (chicken in chickens) {
@@ -91,11 +127,14 @@ class Level2(
                     usedBullets.add(bullet)
                     if (chicken.hp <= 0) {
                         deadChickens.add(chicken)
-                        // 10% drop item
+                        // 10% rơi item
                         if ((0..99).random() < 10) {
                             val itemType = (0..2).random()
                             items.add(Item(chicken.x, chicken.y, itemBitmaps[itemType], itemType))
                         }
+                        // Rơi xu: dùng hệ xu của BaseLevel
+                        spawnCoin(chicken.x, chicken.y, chicken.bitmap.width, chicken.bitmap.height)
+                        // mặc định 1 xu
                     }
                 }
             }
@@ -103,14 +142,14 @@ class Level2(
         chickens.removeAll(deadChickens)
         bullets.removeAll(usedBullets)
 
-        // Player - Chicken collision
+        // Player - Chicken
         val collidedChicken = chickens.firstOrNull { CollisionUtils.isColliding(it.getRect(), player.getRect()) }
         if (collidedChicken != null) {
             lives--
             chickens.remove(collidedChicken)
         }
 
-        // Player - Item collision (báo về pickedGunMode)
+        // Player - Item (đổi súng)
         val collectedItems = items.filter { CollisionUtils.isColliding(it.getRect(), player.getRect()) }
         for (item in collectedItems) {
             pickedGunMode = when (item.type) {
@@ -122,10 +161,14 @@ class Level2(
         }
         items.removeAll(collectedItems)
 
-        // Boss spawn rồi thì update boss và kiểm tra va chạm
+        // Cập nhật & nhặt xu (gọi hàm mặc định của BaseLevel)
+        updateCoins()
+
+        // Boss logic
         boss?.let { b ->
-            b.update()
-            // Bullet - Boss collision
+            b.update(System.currentTimeMillis(), eggs)
+
+            // Bullet - Boss
             val usedBulletsBoss = mutableListOf<Bullet>()
             for (bullet in bullets) {
                 if (CollisionUtils.isColliding(b.getRect(), bullet.getRect())) {
@@ -135,15 +178,25 @@ class Level2(
             }
             bullets.removeAll(usedBulletsBoss)
 
-            // Player - Boss collision (mất mạng)
+            // Player - Boss
             if (CollisionUtils.isColliding(b.getRect(), player.getRect())) {
                 lives--
             }
 
-            // Boss chết thì qua màn
             if (b.hp <= 0) {
                 isLevelFinished = true
             }
+        }
+
+        // Eggs
+        eggs.forEach { it.update() }
+        eggs.removeAll { it.isOutOfScreen }
+
+        // Egg - Player
+        val hitEgg = eggs.firstOrNull { CollisionUtils.isColliding(it.getRect(), player.getRect()) }
+        if (hitEgg != null) {
+            lives--
+            eggs.remove(hitEgg)
         }
     }
 
@@ -153,13 +206,22 @@ class Level2(
         chickens.forEach { it.draw(canvas) }
         bullets.forEach { it.draw(canvas) }
         items.forEach { it.draw(canvas) }
+
+        // Vẽ xu từ BaseLevel
+        drawCoins(canvas)
+
+        eggs.forEach { it.draw(canvas) }
         boss?.draw(canvas)
     }
 
     override fun isCompleted(): Boolean = isLevelFinished
+
     override fun reset() {
         chickens.clear()
         items.clear()
+        // coins do BaseLevel quản lý, BaseLevel.reset() của bạn không xóa -> không sao,
+        // nếu muốn sạch tuyệt đối có thể thêm hàm clearCoins() trong BaseLevel.
+        eggs.clear()
         boss = null
         isBossSpawned = false
         lives = 3
@@ -168,6 +230,7 @@ class Level2(
         levelTimer = 0
         pickedGunMode = null
     }
+
     override fun getBackground(): Bitmap = background
     override fun getLives(): Int = lives
 }

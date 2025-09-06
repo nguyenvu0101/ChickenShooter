@@ -7,9 +7,11 @@ import android.graphics.Rect
 class Player(
     var x: Int,
     var y: Int,
-    var bitmap: Bitmap
+    var bitmap: Bitmap ,
+    var gold : Int = 0
 ) {
-    fun getRect(): Rect = Rect(x, y, x + bitmap.width, y + bitmap.height)
+    fun getRect(): android.graphics.Rect =
+        android.graphics.Rect(x, y, x + bitmap.width, y + bitmap.height)
     fun draw(canvas: Canvas) {
         canvas.drawBitmap(bitmap, x.toFloat(), y.toFloat(), null)
     }
