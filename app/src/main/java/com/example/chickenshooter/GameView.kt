@@ -9,14 +9,18 @@ import android.graphics.Color
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
-import com.example.chickenshooter.levels.*
 import android.media.SoundPool
+import com.example.chickenshooter.levels.*
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
 
 enum class GunMode {
     NORMAL, FAST, TRIPLE_PARALLEL, TRIPLE_SPREAD
 }
 
-class GameView(context: Context, private val backgroundId: Int, planeId: Int) : SurfaceView(context), SurfaceHolder.Callback {
+class GameView(context: Context, private val backgroundId: Int, planeId: Int)
+    : SurfaceView(context), SurfaceHolder.Callback {
+
     private val thread: GameThread
     private val playerBitmap = BitmapFactory.decodeResource(resources, planeId)
     private val bulletBitmap = BitmapFactory.decodeResource(resources, R.drawable.bullet)
@@ -25,6 +29,8 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int) : 
         BitmapFactory.decodeResource(resources, R.drawable.item_parallel),
         BitmapFactory.decodeResource(resources, R.drawable.item_spread)
     )
+    private val coinBitmap = BitmapFactory.decodeResource(resources, R.drawable.coin)
+
     private lateinit var player: Player
     private val bullets = mutableListOf<Bullet>()
 
@@ -35,7 +41,7 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int) : 
     private val maxLevel = 4
     private lateinit var currentLevel: BaseLevel
 
-    // Gun mode, auto shoot, lives, cooldown, ...
+    // Gun mode
     private var gunMode = GunMode.NORMAL
     private var gunModeTimer = 0
     private val gunModeDuration = 8 * 60
@@ -47,6 +53,10 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int) : 
     private var levelChangeCounter = 0
     private val levelChangeDuration = 90
 
+    // Coins
+    private val userRepo = UserRepoRTDB()
+    private var localCoin = 0
+    private var coinBeforePlay = 0
     init {
         holder.addCallback(this)
         thread = GameThread(holder, this)
@@ -57,21 +67,63 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int) : 
         val centerX = width / 2 - playerBitmap.width / 2
         val bottomY = height - playerBitmap.height - 30
         player = Player(centerX, bottomY, playerBitmap)
+
         soundPool = SoundPool.Builder().setMaxStreams(5).build()
         gunshotSoundId = soundPool.load(context, R.raw.laser, 1)
-        startLevel(1)
-        thread.running = true
-        thread.start()
-    }
 
+        if (isOfflineMode()) {
+            val prefs = context.getSharedPreferences("game", Context.MODE_PRIVATE)
+            localCoin = prefs.getLong("coins", 0L).toInt()
+            coinBeforePlay = localCoin
+            startLevel(1)
+            thread.running = true
+            thread.start()
+        } else {
+            Firebase.auth.currentUser?.uid?.let { uid ->
+                userRepo.loadOnlineProfileOnce(uid,
+                    onDone = { name: String, coins: Long ->
+                        localCoin = coins.toInt()
+                        coinBeforePlay = coins.toInt() // <-- lưu coin trước khi chơi
+                        startLevel(1)
+                        thread.running = true
+                        thread.start()
+                    },
+                    onErr = { msg ->
+                        localCoin = 0
+                        coinBeforePlay = 0
+                        startLevel(1)
+                        thread.running = true
+                        thread.start()
+                    }
+                )
+            }
+        }
+    }
     fun startLevel(newLevel: Int) {
         level = newLevel
         currentLevel = when (level) {
-            1 -> Level1(context, player, bulletBitmap, itemBitmaps, backgroundId)
-            2 -> Level2(context, player, bulletBitmap, itemBitmaps, backgroundId)
-            3 -> Level3(context, player, bulletBitmap, itemBitmaps, backgroundId)
-            4 -> Level4(context, player, bulletBitmap, itemBitmaps, backgroundId)
-            else -> Level1(context, player, bulletBitmap, itemBitmaps, backgroundId)
+            1 -> Level1(context, player, bulletBitmap, itemBitmaps, coinBitmap, backgroundId)
+            2 -> Level2(context, player, bulletBitmap, itemBitmaps, coinBitmap, backgroundId)
+            3 -> Level3(context, player, bulletBitmap, itemBitmaps, coinBitmap, backgroundId)
+            4 -> Level4(context, player, bulletBitmap, itemBitmaps, coinBitmap, backgroundId)
+            else -> Level1(context, player, bulletBitmap, itemBitmaps, coinBitmap, backgroundId)
+        }
+
+        currentLevel.setScreenSize(width, height)
+
+        // khi nhặt coin
+        currentLevel.onCoinCollected = { amount: Int ->
+            localCoin += amount
+//            if (isOfflineMode()) {
+//                // Lưu SharedPreferences
+//                val prefs = context.getSharedPreferences("game", Context.MODE_PRIVATE)
+//                prefs.edit().putLong("coins", localCoin.toLong()).apply()
+//            } else {
+//                // Lưu lên Firebase (chỉ cần gọi thế này là đúng)
+//                Firebase.auth.currentUser?.uid?.let { uid ->
+//                    userRepo.addCoins(uid, amount.toLong())
+//                }
+//            }
         }
         currentLevel.reset()
         bullets.clear()
@@ -90,11 +142,37 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int) : 
             try {
                 thread.join()
                 retry = false
-            } catch (e: InterruptedException) {}
+            } catch (e: InterruptedException) { }
         }
     }
 
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
+    private fun isOfflineMode(): Boolean {
+        val prefs = context.getSharedPreferences("game", Context.MODE_PRIVATE)
+        return prefs.getBoolean("offline_mode", false)
+    }
+    fun endGameAndReturnToMenu() {
+        // Đảm bảo chỉ lưu phần coin vừa kiếm được
+        val coinEarned = localCoin - coinBeforePlay
+        if (!isOfflineMode()) {
+            Firebase.auth.currentUser?.uid?.let { uid ->
+                userRepo.addCoins(uid, coinEarned.toLong(),
+                    onOk = { /* thông báo nếu muốn */ },
+                    onErr = { msg -> android.widget.Toast.makeText(context, "Lỗi lưu coin: $msg", android.widget.Toast.LENGTH_LONG).show() }
+                )
+            }
+        } else {
+            val prefs = context.getSharedPreferences("game", Context.MODE_PRIVATE)
+            prefs.edit().putLong("coins", localCoin.toLong()).apply()
+        }
+        // Chuyển về StartMenuActivity như cũ
+        val activity = context as? android.app.Activity
+        if (activity != null) {
+            val intent = android.content.Intent(activity, StartMenuActivity::class.java)
+            activity.startActivity(intent)
+            activity.finish()
+        }
+    }
 
     fun update() {
         if (isLevelChanging) {
@@ -104,13 +182,20 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int) : 
             }
             return
         }
+        if (currentLevel.getLives() <= 0) {
+            endGameAndReturnToMenu()
+            return
+        }
+
+// Khi thắng tất cả level
+        if (level > maxLevel) {
+            endGameAndReturnToMenu()
+            return
+        }
         if (currentLevel.getLives() <= 0) return
 
-        // Đạn tự động (bắn lên)
-        val interval = when (gunMode) {
-            GunMode.FAST -> autoShootIntervalFast
-            else -> autoShootIntervalNormal
-        }
+        // Bắn tự động
+        val interval = if (gunMode == GunMode.FAST) autoShootIntervalFast else autoShootIntervalNormal
         autoShootCounter++
         if (autoShootCounter >= interval) {
             val bulletY = player.y
@@ -142,23 +227,18 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int) : 
 
         currentLevel.update(bullets)
 
-        // Kiểm tra nếu nhặt item thì đổi chế độ súng
-        val newGunMode = currentLevel.pickedGunMode
-        if (newGunMode != null) {
-            gunMode = newGunMode
+        // Item -> đổi súng
+        currentLevel.pickedGunMode?.let {
+            gunMode = it
             gunModeTimer = 0
             currentLevel.pickedGunMode = null
         }
 
-        // Đếm thời gian hiệu lực nâng cấp
         if (gunMode != GunMode.NORMAL) {
             gunModeTimer++
-            if (gunModeTimer > gunModeDuration) {
-                gunMode = GunMode.NORMAL
-            }
+            if (gunModeTimer > gunModeDuration) gunMode = GunMode.NORMAL
         }
 
-        // Kiểm tra nếu màn đã hoàn thành thì chuyển màn
         if (currentLevel.isCompleted()) {
             if (level < maxLevel) {
                 startLevel(level + 1)
@@ -172,14 +252,18 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int) : 
         super.draw(canvas)
         currentLevel.draw(canvas, bullets)
 
-        // Vẽ số lượng mạng bằng icon máy bay
         val paint = Paint()
         val lifeIcon = Bitmap.createScaledBitmap(playerBitmap, 60, 60, true)
         for (i in 0 until currentLevel.getLives()) {
             canvas.drawBitmap(lifeIcon, 40f + i * 70, 80f, paint)
         }
 
-        // Nếu đang chuyển màn
+        // HUD hiển thị số xu
+        paint.color = Color.YELLOW
+        paint.textSize = 48f
+        paint.textAlign = Paint.Align.RIGHT
+        canvas.drawText("Xu: $localCoin", width - 32f, 80f, paint)
+
         if (isLevelChanging) {
             paint.textSize = 80f
             paint.color = Color.YELLOW

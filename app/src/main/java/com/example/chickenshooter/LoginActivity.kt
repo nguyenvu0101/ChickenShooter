@@ -120,22 +120,30 @@ class LoginActivity : AppCompatActivity() {
         displayName: String? = null,
         onOk: () -> Unit
     ) {
-        val uid = auth.currentUser?.uid ?: return onOk()
+        val user = auth.currentUser ?: return onOk()
+        val uid = user.uid
+        val email = user.email ?: ""
         val database = Firebase.database("https://chickenshooter-bd531-default-rtdb.asia-southeast1.firebasedatabase.app")
         val ref = database.getReference("users/$uid")
         val now = System.currentTimeMillis()
-        val init = mapOf(
-            "displayName" to (displayName ?: "Player"),
-            "coins" to 0L,
-            "createdAt" to now,
-            "updatedAt" to now
-        )
-        ref.updateChildren(init)
-            .addOnSuccessListener { onOk() }
-            .addOnFailureListener { e ->
-                toast("RTDB lỗi: ${e.message}")
-                onOk() // tránh kẹt UI
+        ref.get().addOnSuccessListener { snapshot ->
+            if (!snapshot.exists()) {
+                // Chỉ tạo mới profile nếu chưa có
+                val init = mapOf(
+                    "displayName" to (displayName ?: "Player"),
+                    "email" to email,
+                    "coins" to 0L,
+                    "createdAt" to now,
+                    "updatedAt" to now
+                )
+                ref.setValue(init)
             }
+            // Nếu đã có profile, giữ nguyên!
+            onOk()
+        }.addOnFailureListener { e ->
+            toast("RTDB lỗi: ${e.message}")
+            onOk()
+        }
     }
 
     private fun goOnlineToStartMenu() {

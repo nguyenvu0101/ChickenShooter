@@ -8,32 +8,39 @@ import com.google.firebase.database.Transaction
 import com.google.firebase.database.ktx.database
 import com.google.firebase.ktx.Firebase
 
-object UserRepoRTDB {
-    private const val prefsName = "game"
+class UserRepoRTDB {
 
-    fun isOffline(ctx: Context) =
+    private val prefsName = "game"
+
+    // --- OFFLINE (SharedPreferences) ---
+    fun isOffline(ctx: Context): Boolean =
         ctx.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
             .getBoolean("offline_mode", false)
 
-    // OFFLINE (SharedPreferences)
     fun getOfflineProfile(ctx: Context): Pair<String, Long> {
         val p = ctx.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
         val name = p.getString("display_name", "Player") ?: "Player"
         val coins = p.getLong("coins", 0L)
         return name to coins
     }
+
     fun setOfflineName(ctx: Context, name: String) {
         ctx.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
             .edit().putString("display_name", name).apply()
     }
+
     fun addOfflineCoins(ctx: Context, delta: Long) {
         val p = ctx.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
         val cur = p.getLong("coins", 0L)
         p.edit().putLong("coins", (cur + delta).coerceAtLeast(0L)).apply()
     }
 
-    // ONLINE (RTDB)
-    fun loadOnlineProfileOnce(uid: String, onDone: (String, Long) -> Unit, onErr: (String) -> Unit = {}) {
+    // --- ONLINE (Firebase Realtime Database) ---
+    fun loadOnlineProfileOnce(
+        uid: String,
+        onDone: (String, Long) -> Unit,
+        onErr: (String) -> Unit = {}
+    ) {
         val database = Firebase.database("https://chickenshooter-bd531-default-rtdb.asia-southeast1.firebasedatabase.app")
         val ref = database.getReference("users/$uid")
         ref.get()
@@ -45,17 +52,39 @@ object UserRepoRTDB {
             .addOnFailureListener { e -> onErr(e.message ?: "unknown") }
     }
 
-    fun updateDisplayName(uid: String, name: String, onOk: () -> Unit = {}, onErr: (String) -> Unit = {}) {
+    fun updateDisplayName(
+        uid: String,
+        name: String,
+        onOk: () -> Unit = {},
+        onErr: (String) -> Unit = {}
+    ) {
         val database = Firebase.database("https://chickenshooter-bd531-default-rtdb.asia-southeast1.firebasedatabase.app")
         val ref = database.getReference("users/$uid")
-        ref.updateChildren(mapOf(
-            "displayName" to name,
-            "updatedAt" to System.currentTimeMillis()
-        )).addOnSuccessListener { onOk() }
+        ref.updateChildren(
+            mapOf(
+                "displayName" to name,
+                "updatedAt" to System.currentTimeMillis()
+            )
+        ).addOnSuccessListener { onOk() }
             .addOnFailureListener { e -> onErr(e.message ?: "unknown") }
     }
-
-    fun addCoins(uid: String, delta: Long, onOk: () -> Unit = {}, onErr: (String) -> Unit = {}) {
+    fun setCoins(
+        uid: String,
+        coins: Long,
+        onOk: () -> Unit = {},
+        onErr: (String) -> Unit = {}
+    ) {
+        val ref = Firebase.database.getReference("users/$uid/coins")
+        ref.setValue(coins)
+            .addOnSuccessListener { onOk() }
+            .addOnFailureListener { e -> onErr(e.message ?: "unknown") }
+    }
+    fun addCoins(
+        uid: String,
+        delta: Long,
+        onOk: () -> Unit = {},
+        onErr: (String) -> Unit = {}
+    ) {
         val ref = Firebase.database.getReference("users/$uid/coins")
         ref.runTransaction(object : Transaction.Handler {
             override fun doTransaction(currentData: MutableData): Transaction.Result {
@@ -63,8 +92,9 @@ object UserRepoRTDB {
                 currentData.value = (cur + delta).coerceAtLeast(0L)
                 return Transaction.success(currentData)
             }
+
             override fun onComplete(error: DatabaseError?, committed: Boolean, snapshot: DataSnapshot?) {
-                if (error != null) onErr(error.message) else onOk()
+                if (error != null) onErr(error.message ?: "unknown") else onOk()
             }
         })
     }
