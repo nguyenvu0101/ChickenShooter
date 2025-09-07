@@ -6,6 +6,8 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Color
+import android.graphics.Rect
+import android.graphics.Path
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -53,10 +55,22 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
     private var levelChangeCounter = 0
     private val levelChangeDuration = 90
 
+    private var isGameOver = false
+    private var gameOverCounter = 0
+    private val gameOverWait = 90
+    private var isReturningToMenu = false
+
+    private var showGameOverMenu = false
+    private var retryButtonRect: Rect? = null
+    private var menuButtonRect: Rect? = null
+
+    private var isPaused = false
+    private var pauseButtonRect: Rect? = null
     // Coins
     private val userRepo = UserRepoRTDB()
     private var localCoin = 0
     private var coinBeforePlay = 0
+
     init {
         holder.addCallback(this)
         thread = GameThread(holder, this)
@@ -83,7 +97,7 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
                 userRepo.loadOnlineProfileOnce(uid,
                     onDone = { name: String, coins: Long ->
                         localCoin = coins.toInt()
-                        coinBeforePlay = coins.toInt() // <-- lưu coin trước khi chơi
+                        coinBeforePlay = coins.toInt()
                         startLevel(1)
                         thread.running = true
                         thread.start()
@@ -99,6 +113,7 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
             }
         }
     }
+
     fun startLevel(newLevel: Int) {
         level = newLevel
         currentLevel = when (level) {
@@ -111,19 +126,17 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
 
         currentLevel.setScreenSize(width, height)
 
-        // khi nhặt coin
         currentLevel.onCoinCollected = { amount: Int ->
             localCoin += amount
-//            if (isOfflineMode()) {
-//                // Lưu SharedPreferences
-//                val prefs = context.getSharedPreferences("game", Context.MODE_PRIVATE)
-//                prefs.edit().putLong("coins", localCoin.toLong()).apply()
-//            } else {
-//                // Lưu lên Firebase (chỉ cần gọi thế này là đúng)
-//                Firebase.auth.currentUser?.uid?.let { uid ->
-//                    userRepo.addCoins(uid, amount.toLong())
-//                }
-//            }
+            // Lưu xu ngay khi nhặt được
+            if (isOfflineMode()) {
+                val prefs = context.getSharedPreferences("game", Context.MODE_PRIVATE)
+                prefs.edit().putLong("coins", localCoin.toLong()).apply()
+            } else {
+                Firebase.auth.currentUser?.uid?.let { uid ->
+                    userRepo.addCoins(uid, amount.toLong())
+                }
+            }
         }
         currentLevel.reset()
         bullets.clear()
@@ -152,12 +165,11 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
         return prefs.getBoolean("offline_mode", false)
     }
     fun endGameAndReturnToMenu() {
-        // Đảm bảo chỉ lưu phần coin vừa kiếm được
         val coinEarned = localCoin - coinBeforePlay
         if (!isOfflineMode()) {
             Firebase.auth.currentUser?.uid?.let { uid ->
                 userRepo.addCoins(uid, coinEarned.toLong(),
-                    onOk = { /* thông báo nếu muốn */ },
+                    onOk = { /* ... */ },
                     onErr = { msg -> android.widget.Toast.makeText(context, "Lỗi lưu coin: $msg", android.widget.Toast.LENGTH_LONG).show() }
                 )
             }
@@ -165,16 +177,19 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
             val prefs = context.getSharedPreferences("game", Context.MODE_PRIVATE)
             prefs.edit().putLong("coins", localCoin.toLong()).apply()
         }
-        // Chuyển về StartMenuActivity như cũ
-        val activity = context as? android.app.Activity
-        if (activity != null) {
-            val intent = android.content.Intent(activity, StartMenuActivity::class.java)
-            activity.startActivity(intent)
-            activity.finish()
+        thread.running = false
+        post {
+            val activity = context as? android.app.Activity
+            if (activity != null) {
+                val intent = android.content.Intent(activity, StartMenuActivity::class.java)
+                activity.startActivity(intent)
+                activity.finish()
+            }
         }
     }
 
     fun update() {
+        if (isPaused) return
         if (isLevelChanging) {
             levelChangeCounter++
             if (levelChangeCounter >= levelChangeDuration) {
@@ -183,18 +198,29 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
             return
         }
         if (currentLevel.getLives() <= 0) {
-            endGameAndReturnToMenu()
+            isGameOver = true
+            showGameOverMenu = true
             return
         }
-
-// Khi thắng tất cả level
+        if (isGameOver) {
+            gameOverCounter++
+            if (gameOverCounter > gameOverWait) {
+                endGameAndReturnToMenu()
+            }
+            return
+        }
+        if (currentLevel.isCompleted()) {
+            if (level < maxLevel) {
+                startLevel(level + 1)
+            } else {
+                isLevelChanging = true
+            }
+            return
+        }
         if (level > maxLevel) {
             endGameAndReturnToMenu()
             return
         }
-        if (currentLevel.getLives() <= 0) return
-
-        // Bắn tự động
         val interval = if (gunMode == GunMode.FAST) autoShootIntervalFast else autoShootIntervalNormal
         autoShootCounter++
         if (autoShootCounter >= interval) {
@@ -227,7 +253,6 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
 
         currentLevel.update(bullets)
 
-        // Item -> đổi súng
         currentLevel.pickedGunMode?.let {
             gunMode = it
             gunModeTimer = 0
@@ -237,14 +262,6 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
         if (gunMode != GunMode.NORMAL) {
             gunModeTimer++
             if (gunModeTimer > gunModeDuration) gunMode = GunMode.NORMAL
-        }
-
-        if (currentLevel.isCompleted()) {
-            if (level < maxLevel) {
-                startLevel(level + 1)
-            } else {
-                isLevelChanging = true
-            }
         }
     }
 
@@ -258,11 +275,57 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
             canvas.drawBitmap(lifeIcon, 40f + i * 70, 80f, paint)
         }
 
-        // HUD hiển thị số xu
+        // Vẽ số xu
         paint.color = Color.YELLOW
         paint.textSize = 48f
         paint.textAlign = Paint.Align.RIGHT
-        canvas.drawText("Xu: $localCoin", width - 32f, 80f, paint)
+        val coinTextX = width - 32f
+        val coinTextY = 80f
+        canvas.drawText("Xu: $localCoin", coinTextX, coinTextY, paint)
+
+        // Vẽ nút pause/play bên trái chữ xu, đảm bảo không đè lên
+        val pauseBtnSize = 48f
+        val pauseBtnX = coinTextX - pauseBtnSize - 150f // Di chuyển nút sang trái xa hơn chữ xu
+        val pauseBtnY = coinTextY - pauseBtnSize + 8f  // Di chuyển nút lên trên một chút
+        pauseButtonRect = Rect(
+            pauseBtnX.toInt(),
+            pauseBtnY.toInt(),
+            (pauseBtnX + pauseBtnSize).toInt(),
+            (pauseBtnY + pauseBtnSize).toInt()
+        )
+
+        paint.color = Color.WHITE
+        paint.strokeWidth = 8f
+        val centerX = pauseBtnX + pauseBtnSize / 2
+        val centerY = pauseBtnY + pauseBtnSize / 2
+
+        if (!isPaused) {
+            // Đang chơi: vẽ icon PAUSE ||
+            val barW = 8f
+            val barH = pauseBtnSize - 16f
+            val gap = 10f
+            canvas.drawRect(
+                centerX - barW - gap / 2, centerY - barH / 2,
+                centerX - gap / 2, centerY + barH / 2,
+                paint
+            )
+            canvas.drawRect(
+                centerX + gap / 2, centerY - barH / 2,
+                centerX + barW + gap / 2, centerY + barH / 2,
+                paint
+            )
+        } else {
+            // Đang PAUSE: vẽ tam giác ngang ▶
+            val triangleSize = pauseBtnSize * 0.6f
+            val path = Path()
+            path.moveTo(centerX - triangleSize / 2, centerY - triangleSize / 2)
+            path.lineTo(centerX - triangleSize / 2, centerY + triangleSize / 2)
+            path.lineTo(centerX + triangleSize / 2, centerY)
+            path.close()
+            canvas.drawPath(path, paint)
+        }
+
+        paint.textAlign = Paint.Align.LEFT
 
         if (isLevelChanging) {
             paint.textSize = 80f
@@ -276,10 +339,75 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
             canvas.drawText(msg, width / 2f, height / 2f, paint)
             paint.textAlign = Paint.Align.LEFT
         }
+        if (isGameOver && showGameOverMenu) {
+            paint.textSize = 80f
+            paint.color = Color.RED
+            paint.textAlign = Paint.Align.CENTER
+            canvas.drawText("GAME OVER", width / 2f, height / 2f - 100, paint)
+
+            val btnWidth = 350
+            val btnHeight = 100
+            val btnSpacing = 60
+            val centerXBtn = width / 2
+            val retryY = height / 2 + 20
+            val menuY = retryY + btnHeight + btnSpacing
+
+            retryButtonRect = Rect(centerXBtn - btnWidth/2, retryY, centerXBtn + btnWidth/2, retryY + btnHeight)
+            paint.color = Color.parseColor("#4CAF50")
+            canvas.drawRect(retryButtonRect!!, paint)
+            paint.color = Color.WHITE
+            paint.textSize = 52f
+            canvas.drawText("Chơi lại", centerXBtn.toFloat(), retryY + btnHeight/2f + 18f, paint)
+
+            menuButtonRect = Rect(centerXBtn - btnWidth/2, menuY, centerXBtn + btnWidth/2, menuY + btnHeight)
+            paint.color = Color.parseColor("#2196F3")
+            canvas.drawRect(menuButtonRect!!, paint)
+            paint.color = Color.WHITE
+            canvas.drawText("Menu", centerXBtn.toFloat(), menuY + btnHeight/2f + 18f, paint)
+
+            paint.textAlign = Paint.Align.LEFT
+        }
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (event.action == MotionEvent.ACTION_DOWN || event.action == MotionEvent.ACTION_MOVE) {
+        // Xử lý bấm nút Pause/Play
+        if (pauseButtonRect != null && event.action == MotionEvent.ACTION_DOWN) {
+            val x = event.x.toInt()
+            val y = event.y.toInt()
+            if (pauseButtonRect!!.contains(x, y)) {
+                isPaused = !isPaused
+                return true // KHÔNG xử lý di chuyển máy bay khi ấn vào nút
+            }
+        }
+        // Nếu đang pause thì không xử lý gì thêm
+        if (isPaused) return true
+        // Xử lý menu Game Over
+        if (isGameOver && showGameOverMenu) {
+            if (event.action == MotionEvent.ACTION_DOWN) {
+                val x = event.x.toInt()
+                val y = event.y.toInt()
+                if (retryButtonRect?.contains(x, y) == true) {
+                    showGameOverMenu = false
+                    isGameOver = false
+                    currentLevel.reset()
+                    bullets.clear()
+                    gunMode = GunMode.NORMAL
+                    gunModeTimer = 0
+                    autoShootCounter = 0
+                    return true
+                }
+                if (menuButtonRect?.contains(x, y) == true) {
+                    endGameAndReturnToMenu()
+                    return true
+                }
+            }
+            return true
+        }
+        if (isGameOver) return false
+        // Chỉ xử lý di chuyển máy bay khi không nhấn vào nút pause và không pause
+        if ((event.action == MotionEvent.ACTION_DOWN || event.action == MotionEvent.ACTION_MOVE)
+            && (pauseButtonRect == null || !pauseButtonRect!!.contains(event.x.toInt(), event.y.toInt()))
+        ) {
             val newX = event.x.toInt() - playerBitmap.width / 2
             player.x = newX.coerceIn(0, width - playerBitmap.width)
         }

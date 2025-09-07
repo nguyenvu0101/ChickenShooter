@@ -84,7 +84,7 @@ class Level1(
     override var pickedGunMode: GunMode? = null
 
     override fun update(bullets: MutableList<Bullet>) {
-        if (isLevelFinished || lives <= 0) return
+        if (isLevelFinished) return
 
         levelTimer++
 
@@ -198,6 +198,9 @@ class Level1(
         if (hitEgg != null) {
             lives--
             eggs.remove(hitEgg)
+        }
+        if (lives <= 0) {
+            isLevelFinished = true
         }
     }
 
