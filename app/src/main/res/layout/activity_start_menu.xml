@@ -3,8 +3,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:gravity="center"
-    android:padding="24dp">
-<!--    android:background="@drawable/bgr_start_menu"-->
+    android:padding="24dp"
+    android:background="@drawable/menu_background">
 
     <TextView
         android:text="Chọn Background"
