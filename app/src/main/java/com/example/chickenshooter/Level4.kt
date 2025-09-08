@@ -20,7 +20,7 @@ class Level4(
     private val background = BitmapFactory.decodeResource(context.resources, backgroundId)
     private val chickenBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.chicken4)
     private val eggBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.egg)
-    private val manaBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.mana)
+
     private val bossExplosionFrames = listOf(
         BitmapFactory.decodeResource(context.resources, R.drawable.playership1_damage1),
         BitmapFactory.decodeResource(context.resources, R.drawable.playership1_damage2),
@@ -37,11 +37,16 @@ class Level4(
 
     private val scaledChickenBitmap = Bitmap.createScaledBitmap(
         chickenBitmap,
-        chickenBitmap.width * 2 / 5,
-        chickenBitmap.height * 2 / 5,
+        chickenBitmap.width / 15,
+        chickenBitmap.height / 15,
         true
     )
-
+    private val manaBitmap = Bitmap.createScaledBitmap(
+        BitmapFactory.decodeResource(context.resources, R.drawable.mana),
+        scaledChickenBitmap.width, // cùng width với gà
+        scaledChickenBitmap.height, // cùng height với gà
+        true
+    )
     // coin dùng bitmap từ tham số coinBmp (đã truyền vào BaseLevel)
 // coin gần bằng quái nhưng nhỏ hơn ~1/3
     override val coinBitmap: Bitmap = Bitmap.createScaledBitmap(
@@ -131,10 +136,10 @@ class Level4(
                         // 10% rơi item
                         if ((0..99).random() < 10) {
                             val itemType = (0..2).random()
-                            items.add(Item(chicken.x, chicken.y, itemBitmaps[itemType], ItemType.values()[itemType]))
+                            items.add(Item(chicken.x, chicken.y, itemBitmaps[itemType], ItemType.values()[itemType], 12)) // item đạn rơi nhanh
                         }
-                        if (Math.random() < 0.2) {
-                            spawnMana(chicken.x, chicken.y, manaBitmap)
+                        if (Math.random() < 0.99) {
+                            spawnMana(chicken.x, chicken.y, manaBitmap , 8)
                         }
                         spawnCoin(chicken.x, chicken.y, chicken.bitmap.width, chicken.bitmap.height)
                         // Rơi xu: dùng hệ xu của BaseLevel
@@ -218,7 +223,8 @@ class Level4(
 
         // Vẽ xu từ BaseLevel
         drawCoins(canvas)
-
+// Vẽ bình mana:
+        drawMana(canvas)
         eggs.forEach { it.draw(canvas) }
         boss?.draw(canvas)
     }
@@ -240,7 +246,11 @@ class Level4(
         pickedGunMode = null
         saveCoinsToSystem()
     }
+    override fun canUseMissile(): Boolean = manaCount >= manaNeededForMissile && !isLevelFinished
 
+    override fun consumeManaForMissile() {
+        manaCount -= manaNeededForMissile
+    }
     override fun getBackground(): Bitmap = background
     override fun getLives(): Int = lives
 }
