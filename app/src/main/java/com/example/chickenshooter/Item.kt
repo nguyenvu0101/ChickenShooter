@@ -4,13 +4,17 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Rect
 
+enum class ItemType {
+    FAST, PARALLEL, SPREAD, MANA
+}
+
 class Item(
     var x: Int,
     var y: Int,
     val bitmap: Bitmap,
-    val type: Int // 0: fast, 1: parallel, 2: spread
+    val type: ItemType , // Sử dụng enum thay vì Int
+    val speed: Int = 10
 ) {
-    val speed = 10
 
     fun update() {
         y += speed

@@ -26,6 +26,17 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
     private val thread: GameThread
     private val playerBitmap = BitmapFactory.decodeResource(resources, planeId)
     private val bulletBitmap = BitmapFactory.decodeResource(resources, R.drawable.bullet)
+    private val missileButtonBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.rocket1)
+    private val missileButtonBitmapScaled = Bitmap.createScaledBitmap(
+        missileButtonBitmap,
+        playerBitmap.width , // ví dụ lớn hơn 20%
+        playerBitmap.height ,
+        true
+    )
+    private val missileBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.rocket1)
+    private val missileExplosionBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.explosion_missile)
+    private var missile: Missile? = null
+    private var missileBtnRect: Rect? = null
     private val itemBitmaps = listOf(
         BitmapFactory.decodeResource(resources, R.drawable.item_fast),
         BitmapFactory.decodeResource(resources, R.drawable.item_parallel),
@@ -35,9 +46,10 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
 
     private lateinit var player: Player
     private val bullets = mutableListOf<Bullet>()
-
+//âm thanh
     private lateinit var soundPool: SoundPool
     private var gunshotSoundId: Int = 0
+    private var missileSoundId: Int = 0
 
     private var level = 1
     private val maxLevel = 4
@@ -84,6 +96,7 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
 
         soundPool = SoundPool.Builder().setMaxStreams(5).build()
         gunshotSoundId = soundPool.load(context, R.raw.laser, 1)
+        missileSoundId = soundPool.load(context, R.raw.tieng_bom_no, 1)
 
         if (isOfflineMode()) {
             val prefs = context.getSharedPreferences("game", Context.MODE_PRIVATE)
@@ -263,6 +276,15 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
             gunModeTimer++
             if (gunModeTimer > gunModeDuration) gunMode = GunMode.NORMAL
         }
+        missile?.update()
+// Khi tên lửa vừa bắt đầu nổ, xóa sạch quái (ví dụ với Level1)
+        if (missile != null && missile!!.isExploding && missile!!.explosionFrame == 1) {
+            (currentLevel as? Level1)?.chickens?.clear()
+        }
+// Xóa hiệu ứng khi nổ xong
+        if (missile?.isFinished() == true) {
+            missile = null
+        }
     }
 
     override fun draw(canvas: Canvas) {
@@ -285,7 +307,7 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
 
         // Vẽ nút pause/play bên trái chữ xu, đảm bảo không đè lên
         val pauseBtnSize = 48f
-        val pauseBtnX = coinTextX - pauseBtnSize - 150f // Di chuyển nút sang trái xa hơn chữ xu
+        val pauseBtnX = coinTextX - pauseBtnSize - 170f // Di chuyển nút sang trái xa hơn chữ xu
         val pauseBtnY = coinTextY - pauseBtnSize + 8f  // Di chuyển nút lên trên một chút
         pauseButtonRect = Rect(
             pauseBtnX.toInt(),
@@ -298,6 +320,14 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
         paint.strokeWidth = 8f
         val centerX = pauseBtnX + pauseBtnSize / 2
         val centerY = pauseBtnY + pauseBtnSize / 2
+
+        val btnX = width - missileButtonBitmapScaled.width - 40
+        val btnY = height - missileButtonBitmapScaled.height - 40
+
+        canvas.drawBitmap(missileButtonBitmapScaled, btnX.toFloat(), btnY.toFloat(), null)
+        missileBtnRect = Rect(btnX, btnY,
+            btnX + missileButtonBitmapScaled.width,
+            btnY + missileButtonBitmapScaled.height)
 
         if (!isPaused) {
             // Đang chơi: vẽ icon PAUSE ||
@@ -324,7 +354,7 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
             path.close()
             canvas.drawPath(path, paint)
         }
-
+        missile?.draw(canvas, missileExplosionBitmap)
         paint.textAlign = Paint.Align.LEFT
 
         if (isLevelChanging) {
@@ -379,6 +409,27 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
                 return true // KHÔNG xử lý di chuyển máy bay khi ấn vào nút
             }
         }
+        if (missileBtnRect != null && event.action == MotionEvent.ACTION_DOWN) {
+            val x = event.x.toInt()
+            val y = event.y.toInt()
+            if (missileBtnRect!!.contains(x, y)) {
+                // Đảm bảo chỉ kích hoạt nếu chưa có hiệu ứng và đủ mana
+                if (missile == null && currentLevel.canUseMissile()) {
+                    currentLevel.consumeManaForMissile()
+                    val targetX = (width - missileBitmap.width) / 2
+                    val targetY = (height - missileBitmap.height) / 2
+                    soundPool.play(missileSoundId, 1f, 1f, 1, 0, 1f)
+                    missile = Missile(
+                        player.x,
+                        player.y,
+                        missileButtonBitmapScaled, // dùng bitmap đã scale
+                        (width - missileButtonBitmapScaled.width) / 2,
+                        (height - missileButtonBitmapScaled.height) / 2
+                    )
+                }
+                return true
+            }
+        }
         // Nếu đang pause thì không xử lý gì thêm
         if (isPaused) return true
         // Xử lý menu Game Over
@@ -404,9 +455,11 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
             return true
         }
         if (isGameOver) return false
-        // Chỉ xử lý di chuyển máy bay khi không nhấn vào nút pause và không pause
+
+        // Chỉ xử lý di chuyển máy bay khi không nhấn vào nút pause và không nhấn vào nút tên lửa
         if ((event.action == MotionEvent.ACTION_DOWN || event.action == MotionEvent.ACTION_MOVE)
             && (pauseButtonRect == null || !pauseButtonRect!!.contains(event.x.toInt(), event.y.toInt()))
+            && (missileBtnRect == null || !missileBtnRect!!.contains(event.x.toInt(), event.y.toInt()))
         ) {
             val newX = event.x.toInt() - playerBitmap.width / 2
             player.x = newX.coerceIn(0, width - playerBitmap.width)

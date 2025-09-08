@@ -37,11 +37,16 @@ class Level1(
 
     private val scaledChickenBitmap = Bitmap.createScaledBitmap(
         chickenBitmap,
-        chickenBitmap.width * 2 / 5,
-        chickenBitmap.height * 2 / 5,
+        chickenBitmap.width / 15,
+        chickenBitmap.height / 15,
         true
     )
-
+    private val manaBitmap = Bitmap.createScaledBitmap(
+        BitmapFactory.decodeResource(context.resources, R.drawable.mana),
+        scaledChickenBitmap.width, // cùng width với gà
+        scaledChickenBitmap.height, // cùng height với gà
+        true
+    )
     // coin dùng bitmap từ tham số coinBmp (đã truyền vào BaseLevel)
 // coin gần bằng quái nhưng nhỏ hơn ~1/3
     override val coinBitmap: Bitmap = Bitmap.createScaledBitmap(
@@ -65,7 +70,7 @@ class Level1(
         true
     )
 
-    private val chickens = mutableListOf<Chicken>()
+    internal val chickens = mutableListOf<Chicken>()
     private val items = mutableListOf<Item>()
     private val eggs = mutableListOf<Egg>()       // trứng boss
     private var boss: BossChicken? = null
@@ -131,8 +136,12 @@ class Level1(
                         // 10% rơi item
                         if ((0..99).random() < 10) {
                             val itemType = (0..2).random()
-                            items.add(Item(chicken.x, chicken.y, itemBitmaps[itemType], itemType))
+                            items.add(Item(chicken.x, chicken.y, itemBitmaps[itemType], ItemType.values()[itemType], 12)) // item đạn rơi nhanh
                         }
+                        if (Math.random() < 0.99) {
+                            spawnMana(chicken.x, chicken.y, manaBitmap , 8)
+                        }
+                        spawnCoin(chicken.x, chicken.y, chicken.bitmap.width, chicken.bitmap.height)
                         // Rơi xu: dùng hệ xu của BaseLevel
                         spawnCoin(chicken.x, chicken.y, chicken.bitmap.width, chicken.bitmap.height)
                         // mặc định 1 xu
@@ -153,7 +162,7 @@ class Level1(
         // Player - Item (đổi súng)
         val collectedItems = items.filter { CollisionUtils.isColliding(it.getRect(), player.getRect()) }
         for (item in collectedItems) {
-            pickedGunMode = when (item.type) {
+            pickedGunMode = when (item.type.ordinal) {
                 0 -> GunMode.FAST
                 1 -> GunMode.TRIPLE_PARALLEL
                 2 -> GunMode.TRIPLE_SPREAD
@@ -164,7 +173,7 @@ class Level1(
 
         // Cập nhật & nhặt xu (gọi hàm mặc định của BaseLevel)
         updateCoins()
-
+        updateMana()
         // Boss logic
         boss?.let { b ->
             b.update(System.currentTimeMillis(), eggs)
@@ -202,6 +211,7 @@ class Level1(
         if (lives <= 0) {
             isLevelFinished = true
         }
+
     }
 
     override fun draw(canvas: Canvas, bullets: List<Bullet>) {
@@ -213,7 +223,8 @@ class Level1(
 
         // Vẽ xu từ BaseLevel
         drawCoins(canvas)
-
+// Vẽ bình mana:
+        drawMana(canvas)
         eggs.forEach { it.draw(canvas) }
         boss?.draw(canvas)
     }
@@ -235,7 +246,11 @@ class Level1(
         pickedGunMode = null
         saveCoinsToSystem()
     }
+    override fun canUseMissile(): Boolean = manaCount >= manaNeededForMissile && !isLevelFinished
 
+    override fun consumeManaForMissile() {
+        manaCount -= manaNeededForMissile
+    }
     override fun getBackground(): Bitmap = background
     override fun getLives(): Int = lives
 }
