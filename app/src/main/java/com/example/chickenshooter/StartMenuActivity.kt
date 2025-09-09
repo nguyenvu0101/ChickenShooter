@@ -11,13 +11,11 @@ import com.google.firebase.database.ValueEventListener
 import com.google.firebase.database.ktx.database
 import com.google.firebase.ktx.Firebase
 
-// Thêm để bắt sự kiện khi nhấn ra ngoài
 import android.content.Context
 import android.graphics.Rect
 import android.view.MotionEvent
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
-
 
 class StartMenuActivity : AppCompatActivity() {
 
@@ -30,13 +28,13 @@ class StartMenuActivity : AppCompatActivity() {
     private val auth by lazy { Firebase.auth }
     private val prefs by lazy { getSharedPreferences("game", MODE_PRIVATE) }
 
-    // UI optional
-    private var tvMode: TextView? = null
-    private var tvPlayerName: TextView? = null
-    private var tvCoins: TextView? = null
-    private var etName: EditText? = null
-    private var btnSaveName: Button? = null
-    private var btnLogin: Button? = null
+    // UI (bắt buộc phải có trong layout)
+    private lateinit var tvMode: TextView
+    private lateinit var tvPlayerName: TextView
+    private lateinit var tvCoins: TextView
+    private lateinit var etName: EditText
+    private lateinit var btnSaveName: Button
+    private lateinit var btnLogin: Button
 
     private var profileListener: ValueEventListener? = null
 
@@ -85,7 +83,7 @@ class StartMenuActivity : AppCompatActivity() {
         btnSaveName = findViewById(R.id.btnSaveName)
         btnLogin = findViewById(R.id.loginBtn)
 
-        btnLogin?.setOnClickListener {
+        btnLogin.setOnClickListener {
             startActivity(Intent(this, LoginActivity::class.java))
         }
 
@@ -97,15 +95,15 @@ class StartMenuActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
-        btnSaveName?.setOnClickListener {
-            val inputName = etName?.text?.toString()?.trim().orEmpty()
+        btnSaveName.setOnClickListener {
+            val inputName = etName.text.toString().trim()
             if (inputName.isEmpty()) {
                 toast("Nhập tên trước đã!")
                 return@setOnClickListener
             }
             if (isOfflineMode()) {
                 setOfflineName(inputName)
-                tvPlayerName?.text = "Tên: $inputName"
+                tvPlayerName.text = "Tên: $inputName"
                 toast("Đã lưu tên OFFLINE")
             } else {
                 val uid = auth.currentUser?.uid
@@ -113,7 +111,7 @@ class StartMenuActivity : AppCompatActivity() {
                     toast("Bạn chưa đăng nhập ONLINE")
                 } else {
                     updateDisplayNameRTDB(uid, inputName) {
-                        tvPlayerName?.text = "Tên: $inputName"
+                        tvPlayerName.text = "Tên: $inputName"
                         toast("Đã lưu tên ONLINE")
                     }
                 }
@@ -140,14 +138,14 @@ class StartMenuActivity : AppCompatActivity() {
         val offlineMode = isOfflineMode()
         val uid = auth.currentUser?.uid
 
-        tvMode?.text = if (offlineMode) "Chế độ: OFFLINE" else "Chế độ: ONLINE"
-        btnLogin?.isEnabled = !offlineMode
-        btnLogin?.alpha = if (offlineMode) 0.5f else 1f
+        tvMode.text = if (offlineMode) "Chế độ: OFFLINE" else "Chế độ: ONLINE"
+        btnLogin.isEnabled = !offlineMode
+        btnLogin.alpha = if (offlineMode) 0.5f else 1f
 
         if (offlineMode) {
             val (name, coins) = getOfflineProfile()
-            tvPlayerName?.text = "Tên: $name"
-            tvCoins?.text = "Xu: $coins"
+            tvPlayerName.text = "Tên: $name"
+            tvCoins.text = "Xu: $coins"
             removeProfileListenerIfAny(uid)
         } else {
             if (uid == null) {
@@ -184,8 +182,8 @@ class StartMenuActivity : AppCompatActivity() {
             override fun onDataChange(s: DataSnapshot) {
                 val name = s.child("displayName").getValue(String::class.java) ?: "Player"
                 val coins = s.child("coins").getValue(Long::class.java) ?: 0L
-                tvPlayerName?.text = "Tên: $name"
-                tvCoins?.text = "Xu: $coins"
+                tvPlayerName.text = "Tên: $name"
+                tvCoins.text = "Xu: $coins"
             }
             override fun onCancelled(error: DatabaseError) {
                 toast("Lỗi profile: ${error.message}")
@@ -232,5 +230,4 @@ class StartMenuActivity : AppCompatActivity() {
         }
         return super.dispatchTouchEvent(ev)
     }
-
 }
