@@ -16,46 +16,69 @@ import com.example.chickenshooter.levels.*
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 
+// CHế độ bắn súng
 enum class GunMode {
     NORMAL, FAST, TRIPLE_PARALLEL, TRIPLE_SPREAD
 }
 
-class GameView(context: Context, private val backgroundId: Int, planeId: Int)
-    : SurfaceView(context), SurfaceHolder.Callback {
+class GameView(context: Context, private val backgroundId: Int, planeId: Int) :
+    SurfaceView(context), SurfaceHolder.Callback {
 
     private val thread: GameThread
+
+    // Obj máy bay
     private val playerBitmap = BitmapFactory.decodeResource(resources, planeId)
+
+    // obj đạn
     private val bulletBitmap = BitmapFactory.decodeResource(resources, R.drawable.bullet)
-    private val missileButtonBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.rocket1)
+
+    // obj nút tên lửa
+    private val missileButtonBitmap =
+        BitmapFactory.decodeResource(context.resources, R.drawable.rocket1)
+
+    // obj xu
+    private val coinBitmap = BitmapFactory.decodeResource(resources, R.drawable.coin)
+
+    // scale lại tên lửa cho nó nhỏ lại
     private val missileButtonBitmapScaled = Bitmap.createScaledBitmap(
         missileButtonBitmap,
-        playerBitmap.width , // ví dụ lớn hơn 20%
-        playerBitmap.height ,
+        playerBitmap.width,
+        playerBitmap.height,
         true
     )
+
+    // obj tên lửa bắn từ máy bay
     private val missileBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.rocket1)
-    private val missileExplosionBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.explosion_missile)
+
+    // obj mô tả hiệu ứng nổ tên lửa
+    private val missileExplosionBitmap =
+        BitmapFactory.decodeResource(context.resources, R.drawable.explosion_missile)
+
+    // biến quản lí tên lửa
     private var missile: Missile? = null
     private var missileBtnRect: Rect? = null
+
+    // item rơi từ con gà
     private val itemBitmaps = listOf(
         BitmapFactory.decodeResource(resources, R.drawable.item_fast),
         BitmapFactory.decodeResource(resources, R.drawable.item_parallel),
         BitmapFactory.decodeResource(resources, R.drawable.item_spread)
     )
-    private val coinBitmap = BitmapFactory.decodeResource(resources, R.drawable.coin)
 
     private lateinit var player: Player
     private val bullets = mutableListOf<Bullet>()
-//âm thanh
+
+    // âm thanh
     private lateinit var soundPool: SoundPool
     private var gunshotSoundId: Int = 0
     private var missileSoundId: Int = 0
 
+    // Level
     private var level = 1
     private val maxLevel = 4
     private lateinit var currentLevel: BaseLevel
 
-    // Gun mode
+    // Chế độ bắn
     private var gunMode = GunMode.NORMAL
     private var gunModeTimer = 0
     private val gunModeDuration = 8 * 60
@@ -63,21 +86,26 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
     private val autoShootIntervalNormal = 10
     private val autoShootIntervalFast = 5
 
+    // Cấu hình chuyển level
     private var isLevelChanging = false
     private var levelChangeCounter = 0
     private val levelChangeDuration = 90
 
+    // game over
     private var isGameOver = false
     private var gameOverCounter = 0
     private val gameOverWait = 90
     private var isReturningToMenu = false
 
+    // menu game
     private var showGameOverMenu = false
     private var retryButtonRect: Rect? = null
     private var menuButtonRect: Rect? = null
 
+    // Pause
     private var isPaused = false
     private var pauseButtonRect: Rect? = null
+
     // Coins
     private val userRepo = UserRepoRTDB()
     private var localCoin = 0
@@ -89,15 +117,35 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
         isFocusable = true
     }
 
+    override fun surfaceDestroyed(holder: SurfaceHolder) {
+        var retry = true
+        thread.running = false
+        soundPool.release()
+        while (retry) {
+            try {
+                thread.join()
+                retry = false
+            } catch (e: InterruptedException) {
+            }
+        }
+    }
+
+    override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
+
     override fun surfaceCreated(holder: SurfaceHolder) {
+        // tạo tọa độ giữa màn hình cách 30px so với bottom
         val centerX = width / 2 - playerBitmap.width / 2
         val bottomY = height - playerBitmap.height - 30
+
+        // khởi tạo obj máy bay
         player = Player(centerX, bottomY, playerBitmap)
 
         soundPool = SoundPool.Builder().setMaxStreams(5).build()
         gunshotSoundId = soundPool.load(context, R.raw.laser, 1)
         missileSoundId = soundPool.load(context, R.raw.tieng_bom_no, 1)
 
+
+        // chức năng online/offline
         if (isOfflineMode()) {
             val prefs = context.getSharedPreferences("game", Context.MODE_PRIVATE)
             localCoin = prefs.getLong("coins", 0L).toInt()
@@ -107,7 +155,8 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
             thread.start()
         } else {
             Firebase.auth.currentUser?.uid?.let { uid ->
-                userRepo.loadOnlineProfileOnce(uid,
+                userRepo.loadOnlineProfileOnce(
+                    uid,
                     onDone = { name: String, coins: Long ->
                         localCoin = coins.toInt()
                         coinBeforePlay = coins.toInt()
@@ -160,30 +209,26 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
         levelChangeCounter = 0
     }
 
-    override fun surfaceDestroyed(holder: SurfaceHolder) {
-        var retry = true
-        thread.running = false
-        soundPool.release()
-        while (retry) {
-            try {
-                thread.join()
-                retry = false
-            } catch (e: InterruptedException) { }
-        }
-    }
-
-    override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
+    //
     private fun isOfflineMode(): Boolean {
         val prefs = context.getSharedPreferences("game", Context.MODE_PRIVATE)
         return prefs.getBoolean("offline_mode", false)
     }
+
     fun endGameAndReturnToMenu() {
         val coinEarned = localCoin - coinBeforePlay
         if (!isOfflineMode()) {
             Firebase.auth.currentUser?.uid?.let { uid ->
-                userRepo.addCoins(uid, coinEarned.toLong(),
+                userRepo.addCoins(
+                    uid, coinEarned.toLong(),
                     onOk = { /* ... */ },
-                    onErr = { msg -> android.widget.Toast.makeText(context, "Lỗi lưu coin: $msg", android.widget.Toast.LENGTH_LONG).show() }
+                    onErr = { msg ->
+                        android.widget.Toast.makeText(
+                            context,
+                            "Lỗi lưu coin: $msg",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                    }
                 )
             }
         } else {
@@ -203,6 +248,8 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
 
     fun update() {
         if (isPaused) return
+
+        // delay chuyênr level
         if (isLevelChanging) {
             levelChangeCounter++
             if (levelChangeCounter >= levelChangeDuration) {
@@ -210,11 +257,14 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
             }
             return
         }
+
+        // nếu hết mạng thì mở game over
         if (currentLevel.getLives() <= 0) {
             isGameOver = true
             showGameOverMenu = true
             return
         }
+
         if (isGameOver) {
             gameOverCounter++
             if (gameOverCounter > gameOverWait) {
@@ -222,6 +272,7 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
             }
             return
         }
+        // nếu end màn thì mở màn mới hoặc end game
         if (currentLevel.isCompleted()) {
             if (level < maxLevel) {
                 startLevel(level + 1)
@@ -230,12 +281,16 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
             }
             return
         }
+
         if (level > maxLevel) {
             endGameAndReturnToMenu()
             return
         }
-        val interval = if (gunMode == GunMode.FAST) autoShootIntervalFast else autoShootIntervalNormal
+
+        val interval =
+            if (gunMode == GunMode.FAST) autoShootIntervalFast else autoShootIntervalNormal
         autoShootCounter++
+
         if (autoShootCounter >= interval) {
             val bulletY = player.y
             val center = player.x + playerBitmap.width / 2 - bulletBitmap.width / 2
@@ -245,12 +300,14 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
                     bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 90.0))
                     soundPool.play(gunshotSoundId, 1f, 1f, 1, 0, 1f)
                 }
+
                 GunMode.TRIPLE_PARALLEL -> {
                     bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 90.0))
                     bullets.add(Bullet(center - offset, bulletY, bulletBitmap, 30, 2, 90.0))
                     bullets.add(Bullet(center + offset, bulletY, bulletBitmap, 30, 2, 90.0))
                     soundPool.play(gunshotSoundId, 1f, 1f, 1, 0, 1f)
                 }
+
                 GunMode.TRIPLE_SPREAD -> {
                     bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 90.0))
                     bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 110.0))
@@ -261,9 +318,11 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
             autoShootCounter = 0
         }
 
+        // update đạn, xóa khoỉ màn hình
         bullets.forEach { it.update() }
         bullets.removeAll { it.y < 0 || it.x < 0 || it.x > width }
 
+        // update level
         currentLevel.update(bullets)
 
         currentLevel.pickedGunMode?.let {
@@ -271,17 +330,17 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
             gunModeTimer = 0
             currentLevel.pickedGunMode = null
         }
-
+        // item đổi súng
         if (gunMode != GunMode.NORMAL) {
             gunModeTimer++
             if (gunModeTimer > gunModeDuration) gunMode = GunMode.NORMAL
         }
         missile?.update()
-// Khi tên lửa vừa bắt đầu nổ, xóa sạch quái (ví dụ với Level1)
+        // Khi tên lửa vừa bắt đầu nổ, xóa sạch quái
         if (missile != null && missile!!.isExploding && missile!!.explosionFrame == 1) {
             (currentLevel as? Level1)?.chickens?.clear()
         }
-// Xóa hiệu ứng khi nổ xong
+        // Xóa hiệu ứng khi nổ xong
         if (missile?.isFinished() == true) {
             missile = null
         }
@@ -292,6 +351,7 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
         currentLevel.draw(canvas, bullets)
 
         val paint = Paint()
+
         val lifeIcon = Bitmap.createScaledBitmap(playerBitmap, 60, 60, true)
         for (i in 0 until currentLevel.getLives()) {
             canvas.drawBitmap(lifeIcon, 40f + i * 70, 80f, paint)
@@ -305,7 +365,7 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
         val coinTextY = 80f
         canvas.drawText("Xu: $localCoin", coinTextX, coinTextY, paint)
 
-        // Vẽ nút pause/play bên trái chữ xu, đảm bảo không đè lên
+        // Vẽ nút pause/play bên trái chữ xu
         val pauseBtnSize = 48f
         val pauseBtnX = coinTextX - pauseBtnSize - 170f // Di chuyển nút sang trái xa hơn chữ xu
         val pauseBtnY = coinTextY - pauseBtnSize + 8f  // Di chuyển nút lên trên một chút
@@ -325,12 +385,14 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
         val btnY = height - missileButtonBitmapScaled.height - 40
 
         canvas.drawBitmap(missileButtonBitmapScaled, btnX.toFloat(), btnY.toFloat(), null)
-        missileBtnRect = Rect(btnX, btnY,
+        missileBtnRect = Rect(
+            btnX, btnY,
             btnX + missileButtonBitmapScaled.width,
-            btnY + missileButtonBitmapScaled.height)
+            btnY + missileButtonBitmapScaled.height
+        )
 
         if (!isPaused) {
-            // Đang chơi: vẽ icon PAUSE ||
+            // Đang chơi: vẽ icon PAUSE
             val barW = 8f
             val barH = pauseBtnSize - 16f
             val gap = 10f
@@ -345,7 +407,7 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
                 paint
             )
         } else {
-            // Đang PAUSE: vẽ tam giác ngang ▶
+            // Đang PAUSE: vẽ tam giác ngang
             val triangleSize = pauseBtnSize * 0.6f
             val path = Path()
             path.moveTo(centerX - triangleSize / 2, centerY - triangleSize / 2)
@@ -354,6 +416,7 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
             path.close()
             canvas.drawPath(path, paint)
         }
+
         missile?.draw(canvas, missileExplosionBitmap)
         paint.textAlign = Paint.Align.LEFT
 
@@ -369,6 +432,7 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
             canvas.drawText(msg, width / 2f, height / 2f, paint)
             paint.textAlign = Paint.Align.LEFT
         }
+
         if (isGameOver && showGameOverMenu) {
             paint.textSize = 80f
             paint.color = Color.RED
@@ -382,18 +446,24 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
             val retryY = height / 2 + 20
             val menuY = retryY + btnHeight + btnSpacing
 
-            retryButtonRect = Rect(centerXBtn - btnWidth/2, retryY, centerXBtn + btnWidth/2, retryY + btnHeight)
+            retryButtonRect = Rect(
+                centerXBtn - btnWidth / 2,
+                retryY,
+                centerXBtn + btnWidth / 2,
+                retryY + btnHeight
+            )
             paint.color = Color.parseColor("#4CAF50")
             canvas.drawRect(retryButtonRect!!, paint)
             paint.color = Color.WHITE
             paint.textSize = 52f
-            canvas.drawText("Chơi lại", centerXBtn.toFloat(), retryY + btnHeight/2f + 18f, paint)
+            canvas.drawText("Chơi lại", centerXBtn.toFloat(), retryY + btnHeight / 2f + 18f, paint)
 
-            menuButtonRect = Rect(centerXBtn - btnWidth/2, menuY, centerXBtn + btnWidth/2, menuY + btnHeight)
+            menuButtonRect =
+                Rect(centerXBtn - btnWidth / 2, menuY, centerXBtn + btnWidth / 2, menuY + btnHeight)
             paint.color = Color.parseColor("#2196F3")
             canvas.drawRect(menuButtonRect!!, paint)
             paint.color = Color.WHITE
-            canvas.drawText("Menu", centerXBtn.toFloat(), menuY + btnHeight/2f + 18f, paint)
+            canvas.drawText("Menu", centerXBtn.toFloat(), menuY + btnHeight / 2f + 18f, paint)
 
             paint.textAlign = Paint.Align.LEFT
         }
@@ -406,7 +476,7 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
             val y = event.y.toInt()
             if (pauseButtonRect!!.contains(x, y)) {
                 isPaused = !isPaused
-                return true // KHÔNG xử lý di chuyển máy bay khi ấn vào nút
+                return true
             }
         }
         if (missileBtnRect != null && event.action == MotionEvent.ACTION_DOWN) {
@@ -454,12 +524,19 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
             }
             return true
         }
+
         if (isGameOver) return false
 
         // Chỉ xử lý di chuyển máy bay khi không nhấn vào nút pause và không nhấn vào nút tên lửa
         if ((event.action == MotionEvent.ACTION_DOWN || event.action == MotionEvent.ACTION_MOVE)
-            && (pauseButtonRect == null || !pauseButtonRect!!.contains(event.x.toInt(), event.y.toInt()))
-            && (missileBtnRect == null || !missileBtnRect!!.contains(event.x.toInt(), event.y.toInt()))
+            && (pauseButtonRect == null || !pauseButtonRect!!.contains(
+                event.x.toInt(),
+                event.y.toInt()
+            ))
+            && (missileBtnRect == null || !missileBtnRect!!.contains(
+                event.x.toInt(),
+                event.y.toInt()
+            ))
         ) {
             val newX = event.x.toInt() - playerBitmap.width / 2
             player.x = newX.coerceIn(0, width - playerBitmap.width)
@@ -467,7 +544,10 @@ class GameView(context: Context, private val backgroundId: Int, planeId: Int)
         return true
     }
 
-    inner class GameThread(private val surfaceHolder: SurfaceHolder, private val gameView: GameView) : Thread() {
+    inner class GameThread(
+        private val surfaceHolder: SurfaceHolder,
+        private val gameView: GameView
+    ) : Thread() {
         var running = false
         override fun run() {
             while (running) {
