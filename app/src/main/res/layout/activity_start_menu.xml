@@ -148,7 +148,7 @@
 
                 <ImageView
                     android:id="@+id/plane2Img"
-                    android:src="@drawable/player2"
+                    android:src="@drawable/player2_v2"
                     android:layout_width="90dp"
                     android:layout_height="90dp" />
             </LinearLayout>

@@ -70,7 +70,7 @@ class StartMenuActivity : AppCompatActivity() {
             selectedPlaneView = plane1
         }
         plane2.setOnClickListener {
-            selectedPlane = R.drawable.player2
+            selectedPlane = R.drawable.player2_v2
             selectedPlaneView.background = null
             plane2.setBackgroundResource(R.drawable.bg_selected_border)
             selectedPlaneView = plane2
