@@ -10,6 +10,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.Paint
 import com.example.chickenshooter.R
+import com.example.chickenshooter.utils.SpriteUtils
 
 class Level1(
     context: Context,
@@ -31,6 +32,14 @@ class Level1(
         (shieldBitmap.height * 0.07).toInt(),
         true
     )
+
+    private val playerExplosionFrames = SpriteUtils.splitSpriteSheet(
+        context,
+        R.drawable.explosion_animation_v1, // sprite sheet nổ của player
+        rows = 8,
+        cols = 8 // số frame trong sheet
+    )
+
 
     private val bossExplosionFrames = listOf(
         BitmapFactory.decodeResource(context.resources, R.drawable.playership1_damage1),
@@ -171,9 +180,11 @@ class Level1(
         // Player - Chicken
         val collidedChicken = chickens.firstOrNull { CollisionUtils.isColliding(it.getRect(), player.getRect()) }
         if (collidedChicken != null) {
-            if (!player.hasShield) lives--
+            if (!player.hasShield) {
+                lives--;
+                player.hit(playerExplosionFrames) // gọi die()
+            }
             chickens.remove(collidedChicken)
-
         }
 
         // Player - Item (đổi súng)
@@ -215,7 +226,8 @@ class Level1(
 
             // Player - Boss
             if (CollisionUtils.isColliding(b.getRect(), player.getRect())) {
-                lives--
+                lives--;
+                player.hit(playerExplosionFrames)
             }
 
             if (b.hp <= 0) {
@@ -231,7 +243,8 @@ class Level1(
         val hitEgg = eggs.firstOrNull { CollisionUtils.isColliding(it.getRect(), player.getRect()) }
         if (hitEgg != null) {
             if (!player.hasShield) {
-                lives--
+                lives --;
+                player.hit(playerExplosionFrames)
             }
             eggs.remove(hitEgg)
         }
