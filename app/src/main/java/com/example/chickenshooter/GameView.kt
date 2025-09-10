@@ -344,7 +344,7 @@
                         val level = currentLevel as Level1
                         level.chickens.clear()
                         level.boss?.let { boss ->
-                            boss.hp -= 200 // trừ 50 máu, có thể chỉnh tùy ý
+                            boss.hp -= 50 // trừ 50 máu, có thể chỉnh tùy ý
                             if (boss.hp < 0) boss.hp = 0
                         }
                     }
@@ -352,7 +352,7 @@
                         val level = currentLevel as Level2
                         level.chickens.clear()
                         level.boss?.let { boss ->
-                            boss.hp -= 200
+                            boss.hp -= 50
                             if (boss.hp < 0) boss.hp = 0
                         }
                     }
@@ -360,7 +360,7 @@
                         val level = currentLevel as Level3
                         level.chickens.clear()
                         level.boss?.let { boss ->
-                            boss.hp -= 200
+                            boss.hp -= 50
                             if (boss.hp < 0) boss.hp = 0
                         }
                     }
@@ -368,7 +368,7 @@
                         val level = currentLevel as Level4
                         level.chickens.clear()
                         level.boss?.let { boss ->
-                            boss.hp -= 200
+                            boss.hp -= 50
                             if (boss.hp < 0) boss.hp = 0
                         }
                     }

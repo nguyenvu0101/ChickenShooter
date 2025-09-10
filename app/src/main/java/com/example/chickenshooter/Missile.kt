@@ -13,7 +13,7 @@ class Missile(
 ) {
     var isExploding = false
     var explosionFrame = 0
-    val explosionMaxFrame = 18
+    val explosionMaxFrame = 15
 
     fun update() {
         if (!isExploding) {
@@ -35,7 +35,7 @@ class Missile(
             canvas.drawBitmap(bitmap, x.toFloat(), y.toFloat(), null)
         } else if (explosionFrame < explosionMaxFrame) {
             val minScale = 0.7f
-            val maxScale = 2.5f
+            val maxScale = 1.7f
             val scale = minScale + (maxScale - minScale) * (explosionFrame.toFloat() / explosionMaxFrame)
             val explosionW = (explosionBitmap.width * scale).toInt()
             val explosionH = (explosionBitmap.height * scale).toInt()
