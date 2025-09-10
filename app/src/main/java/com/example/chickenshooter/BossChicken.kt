@@ -9,16 +9,45 @@ class BossChicken(
     var y: Int,
     val bitmap: Bitmap,
     var hp: Int,
-    private val speed: Int,
-    private val eggBitmap: Bitmap // bitmap cho trứng
+    private var vx: Int, // tốc độ ngang
+    private var vy: Int, // tốc độ dọc
+    private val eggBitmap: Bitmap,
+    private val screenWidth: Int,
+    private val screenHeight: Int
 ) {
-    // Thời gian giữa 2 lần bắn trứng (ms)
     private val eggShootInterval = 1500L
     private var lastEggShootTime: Long = 0
+    val maxHp: Int = hp
 
+    // Sửa ở đây: chỉ có 1 hàm update!
     fun update(currentTime: Long, eggs: MutableList<Egg>) {
-        y += speed
-        // Bắn trứng tỏa khi đến thời điểm
+        // Di chuyển boss trong nửa trên màn hình, đổi hướng khi chạm biên
+        x += vx
+        y += vy
+
+        val minX = 0
+        val maxX = screenWidth - bitmap.width
+        val minY = 0
+        val maxY = screenHeight / 2 - bitmap.height
+
+        if (x < minX) {
+            x = minX
+            vx = -vx
+        }
+        if (x > maxX) {
+            x = maxX
+            vx = -vx
+        }
+        if (y < minY) {
+            y = minY
+            vy = -vy
+        }
+        if (y > maxY) {
+            y = maxY
+            vy = -vy
+        }
+
+        // Bắn trứng như cũ
         if (currentTime - lastEggShootTime >= eggShootInterval) {
             lastEggShootTime = currentTime
             shootEggs(eggs)
@@ -26,8 +55,7 @@ class BossChicken(
     }
 
     private fun shootEggs(eggs: MutableList<Egg>) {
-        // Tỏa 5 hướng: lệch trái, chéo trái, thẳng, chéo phải, lệch phải
-        val angles = listOf(60f, 70f, 80f , 90f, 100f, 110f, 120f)
+        val angles = listOf(60f, 70f, 80f, 90f, 100f, 110f, 120f)
         for (angle in angles) {
             eggs.add(
                 Egg(

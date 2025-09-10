@@ -20,6 +20,14 @@ class Level3(
     private val background = BitmapFactory.decodeResource(context.resources, backgroundId)
     private val chickenBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.chicken3)
     private val eggBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.egg)
+    private val shields = mutableListOf<Shield>()
+    private val shieldBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.shield_item)
+    private val scaledShieldBitmap = Bitmap.createScaledBitmap(
+        shieldBitmap,
+        (shieldBitmap.width * 0.07).toInt(),
+        (shieldBitmap.height * 0.07).toInt(),
+        true
+    )
 
     private val bossExplosionFrames = listOf(
         BitmapFactory.decodeResource(context.resources, R.drawable.playership1_damage1),
@@ -37,8 +45,8 @@ class Level3(
 
     private val scaledChickenBitmap = Bitmap.createScaledBitmap(
         chickenBitmap,
-        chickenBitmap.width / 15,
-        chickenBitmap.height / 15,
+        chickenBitmap.width / 13,
+        chickenBitmap.height / 13,
         true
     )
     private val manaBitmap = Bitmap.createScaledBitmap(
@@ -73,7 +81,7 @@ class Level3(
     internal val chickens = mutableListOf<Chicken>()
     private val items = mutableListOf<Item>()
     private val eggs = mutableListOf<Egg>()       // trứng boss
-    private var boss: BossChicken? = null
+    var boss: BossChicken? = null
     private var isBossSpawned = false
 
     private var spawnCooldown = 0
@@ -100,8 +108,11 @@ class Level3(
                 y = 50,
                 bitmap = bossScaledBitmap,
                 hp = 200,
-                speed = 4,
-                eggBitmap = eggBitmap
+                vx = 6, // tốc độ ngang (có thể random)
+                vy = 3, // tốc độ dọc (có thể random)
+                eggBitmap = eggBitmap,
+                screenWidth = context.resources.displayMetrics.widthPixels,
+                screenHeight = context.resources.displayMetrics.heightPixels
             )
             isBossSpawned = true
         }
@@ -133,18 +144,20 @@ class Level3(
                     usedBullets.add(bullet)
                     if (chicken.hp <= 0) {
                         deadChickens.add(chicken)
+                        if ((0..99).random() < 30) {
+                            shields.add(Shield(chicken.x, chicken.y, scaledShieldBitmap, 5))
+                        }
                         // 10% rơi item
                         if ((0..99).random() < 10) {
                             val itemType = (0..2).random()
                             items.add(Item(chicken.x, chicken.y, itemBitmaps[itemType], ItemType.values()[itemType], 12)) // item đạn rơi nhanh
                         }
-                        if (Math.random() < 0.99) {
+                        if (Math.random() < 0.35) {
                             spawnMana(chicken.x, chicken.y, manaBitmap , 8)
                         }
                         spawnCoin(chicken.x, chicken.y, chicken.bitmap.width, chicken.bitmap.height)
-                        // Rơi xu: dùng hệ xu của BaseLevel
-                        spawnCoin(chicken.x, chicken.y, chicken.bitmap.width, chicken.bitmap.height)
-                        // mặc định 1 xu
+
+
                     }
                 }
             }
@@ -155,8 +168,9 @@ class Level3(
         // Player - Chicken
         val collidedChicken = chickens.firstOrNull { CollisionUtils.isColliding(it.getRect(), player.getRect()) }
         if (collidedChicken != null) {
-            lives--
+            if (!player.hasShield) lives--
             chickens.remove(collidedChicken)
+
         }
 
         // Player - Item (đổi súng)
@@ -174,6 +188,14 @@ class Level3(
         // Cập nhật & nhặt xu (gọi hàm mặc định của BaseLevel)
         updateCoins()
         updateMana()
+        shields.forEach { it.update() }
+        shields.removeAll { it.y > context.resources.displayMetrics.heightPixels }
+
+        val collectedShields = shields.filter { CollisionUtils.isColliding(it.getRect(), player.getRect()) }
+        for (shield in collectedShields) {
+            player.activateShield(6000) // Khiên bảo vệ 5s
+        }
+        shields.removeAll(collectedShields)
         // Boss logic
         boss?.let { b ->
             b.update(System.currentTimeMillis(), eggs)
@@ -205,12 +227,16 @@ class Level3(
         // Egg - Player
         val hitEgg = eggs.firstOrNull { CollisionUtils.isColliding(it.getRect(), player.getRect()) }
         if (hitEgg != null) {
-            lives--
+            if (!player.hasShield) {
+                lives--
+            }
             eggs.remove(hitEgg)
         }
         if (lives <= 0) {
             isLevelFinished = true
         }
+        // Cuối cùng, gọi update cho player:
+        player.update()
 
     }
 
@@ -220,7 +246,8 @@ class Level3(
         chickens.forEach { it.draw(canvas) }
         bullets.forEach { it.draw(canvas) }
         items.forEach { it.draw(canvas) }
-
+        shields.forEach { it.draw(canvas) }
+        player.draw(canvas)
         // Vẽ xu từ BaseLevel
         drawCoins(canvas)
 // Vẽ bình mana:

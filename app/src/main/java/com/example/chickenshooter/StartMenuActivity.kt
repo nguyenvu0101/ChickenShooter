@@ -46,6 +46,8 @@ class StartMenuActivity : AppCompatActivity() {
         val bg2 = findViewById<ImageView>(R.id.bg2Img)
         val plane1 = findViewById<ImageView>(R.id.plane1Img)
         val plane2 = findViewById<ImageView>(R.id.plane2Img)
+
+// Khởi tạo mặc định
         selectedBgView = bg1
         selectedPlaneView = plane1
         selectedBgView.setBackgroundResource(R.drawable.bg_selected_border)
