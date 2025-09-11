@@ -115,6 +115,10 @@
         init {
             holder.addCallback(this)
             thread = GameThread(holder, this)
+
+            // Khởi tạo bitmap cho projectiles
+            ChickenProjectile.init(context.resources)
+
             isFocusable = true
         }
 

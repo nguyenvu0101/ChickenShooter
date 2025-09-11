@@ -123,12 +123,28 @@ class Level4(
             if (spawnCooldown >= spawnInterval) {
                 val randomX = (0..(context.resources.displayMetrics.widthPixels - scaledChickenBitmap.width)).random()
                 val moveType = (0..3).random()
-                chickens.add(Chicken(randomX, 0, scaledChickenBitmap, chickenSpeed, moveType, chickenHp))
+                // Tạo speed ngẫu nhiên
+                val randomSpeed = kotlin.random.Random.nextFloat() * 3f + 2f // 2f đến 5f
+                chickens.add(Chicken(
+                    x = randomX.toFloat(), // Chuyển sang Float
+                    y = 0f, // Chuyển sang Float
+                    bitmap = scaledChickenBitmap,
+                    speed = randomSpeed, // Sử dụng random speed thay vì chickenSpeed cố định
+                    moveType = moveType,
+                    hp = chickenHp,
+                    screenWidth = context.resources.displayMetrics.widthPixels,
+                    screenHeight = context.resources.displayMetrics.heightPixels
+                ))
                 spawnCooldown = 0
             }
         }
+        // Update chickens với player position để AI có thể target
+        val playerCenterX = player.x + player.getRect().width() / 2f
+        val playerCenterY = player.y + player.getRect().height() / 2f
 
-        chickens.forEach { it.update() }
+        chickens.forEach { chicken ->
+            chicken.update(playerCenterX, playerCenterY) // Pass player position
+        }
         chickens.removeAll { it.y > context.resources.displayMetrics.heightPixels }
 
         items.forEach { it.update() }
@@ -145,18 +161,17 @@ class Level4(
                     if (chicken.hp <= 0) {
                         deadChickens.add(chicken)
                         if ((0..99).random() < 30) {
-                            shields.add(Shield(chicken.x, chicken.y, scaledShieldBitmap, 5))
+                            shields.add(Shield(chicken.x.toInt(), chicken.y.toInt(), scaledShieldBitmap, 5))
                         }
                         // 10% rơi item
                         if ((0..99).random() < 10) {
                             val itemType = (0..2).random()
-                            items.add(Item(chicken.x, chicken.y, itemBitmaps[itemType], ItemType.values()[itemType], 12)) // item đạn rơi nhanh
+                            items.add(Item(chicken.x.toInt(), chicken.y.toInt(), itemBitmaps[itemType], ItemType.values()[itemType], 12))
                         }
                         if (Math.random() < 0.35) {
-                            spawnMana(chicken.x, chicken.y, manaBitmap , 8)
+                            spawnMana(chicken.x.toInt(), chicken.y.toInt(), manaBitmap, 8)
                         }
-                        spawnCoin(chicken.x, chicken.y, chicken.bitmap.width, chicken.bitmap.height)
-
+                        spawnCoin(chicken.x.toInt(), chicken.y.toInt(), chicken.bitmap.width, chicken.bitmap.height)
 
                     }
                 }
