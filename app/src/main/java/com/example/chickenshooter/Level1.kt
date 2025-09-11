@@ -111,6 +111,8 @@ class Level1(
     override fun update(bullets: MutableList<Bullet>) {
         if (isLevelFinished) return
 
+        scrollBackground?.update()
+
         levelTimer++
 
         // Spawn boss sau khi hết thời gian
@@ -257,7 +259,8 @@ class Level1(
     }
 
     override fun draw(canvas: Canvas, bullets: List<Bullet>) {
-        canvas.drawBitmap(background, null, canvas.clipBounds, null)
+        scrollBackground?.draw(canvas)
+
         player.draw(canvas)
         chickens.forEach { it.draw(canvas) }
         bullets.forEach { it.draw(canvas) }
@@ -266,7 +269,7 @@ class Level1(
         player.draw(canvas)
         // Vẽ xu từ BaseLevel
         drawCoins(canvas)
-// Vẽ bình mana:
+        // Vẽ bình mana:
         drawMana(canvas)
         eggs.forEach { it.draw(canvas) }
         boss?.draw(canvas)

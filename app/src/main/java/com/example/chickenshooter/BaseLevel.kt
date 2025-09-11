@@ -25,10 +25,14 @@ abstract class BaseLevel(
     private var scrW = 0
     private var scrH = 0
 
+    protected var scrollBackground : Background? = null
+
     fun setScreenSize(w: Int, h: Int) {
         scrW = w
         scrH = h
+        scrollBackground  = Background(getBackground(), w, h, speed = 8)
     }
+
 
     /** Gọi khi địch chết để thả xu tại (x,y) */
     open fun spawnCoin(enemyX: Int, enemyY: Int, enemyW: Int, enemyH: Int) {
