@@ -3,9 +3,15 @@ package com.example.chickenshooter
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import kotlin.math.ceil
-import kotlin.math.min
+import kotlin.math.abs
+import kotlin.math.sin
 import kotlin.random.Random
+
+enum class SwarmPattern {
+    HORIZONTAL, ZIGZAG, SIN_WAVE, CHICKEN_INVADERS
+}
+
+enum class SwarmPhase { START, MERGE, HORIZONTAL }
 
 class ChickenSwarm(
     private val context: Context,
@@ -17,50 +23,107 @@ class ChickenSwarm(
 ) {
     val chickens: MutableList<Chicken> = mutableListOf()
     private var dir = 1
+    private var tick = 0
+
+    private var currentPattern: SwarmPattern = SwarmPattern.values().random()
+    private var previousPattern: SwarmPattern? = null
+    private var phase = SwarmPhase.START
+
+    private val leftChickens = mutableListOf<Chicken>()
+    private val rightChickens = mutableListOf<Chicken>()
+
+    // Tuning params
+    private val edgeMargin = 12f
+    private val verticalSpacing = chickenBitmap.height + 8
+    private val descendSpeed = 20f
+    private val mergeLerp = 0.12f
+
+    // --- Thêm biến quản lý thời gian ---
+    private var lastPatternChange = System.currentTimeMillis()
+    private val patternInterval = 5000L   // 5 giây đổi pattern
 
     init {
-        spawn()
+        prepareChickenInvaders()
     }
 
-    private fun spawn() {
-        val cols = min(numChickens, 6)
-        val rows = ceil(numChickens / cols.toFloat()).toInt()
-        val spacingX = chickenBitmap.width + 20
-        val spacingY = chickenBitmap.height + 20
-        val totalWidth = cols * spacingX
-        val offsetX = ((screenWidth - totalWidth) / 2).coerceAtLeast(0)
-        val startY = 80
+    private fun prepareChickenInvaders() {
+        leftChickens.clear()
+        rightChickens.clear()
+        chickens.clear()
 
-        var created = 0
-        for (r in 0 until rows) {
-            for (c in 0 until cols) {
-                if (created >= numChickens) break
-                val x = (offsetX + c * spacingX).toFloat()
-                val y = (startY + r * spacingY).toFloat()
-
-                val chicken = Chicken(
-                    x = x,
-                    y = y,
-                    bitmap = chickenBitmap,
-                    speed = 0f,   // Swarm điều khiển di chuyển
-                    moveType = 0,
-                    hp = 3,
-                    screenWidth = screenWidth,
-                    screenHeight = screenHeight
-                )
-
-                chickens.add(chicken)
-                created++
-            }
+        val half = numChickens / 2
+        for (i in 0 until half) {
+            val x = edgeMargin
+            val y = -(i * verticalSpacing + chickenBitmap.height.toFloat())
+            val ch = Chicken(x, y, chickenBitmap, 0f, 0, 3, screenWidth, screenHeight)
+            leftChickens.add(ch)
+            chickens.add(ch)
         }
+        for (i in 0 until (numChickens - half)) {
+            val x = (screenWidth - chickenBitmap.width - edgeMargin)
+            val y = -(i * verticalSpacing + chickenBitmap.height.toFloat())
+            val ch = Chicken(x, y, chickenBitmap, 0f, 0, 3, screenWidth, screenHeight)
+            rightChickens.add(ch)
+            chickens.add(ch)
+        }
+
+        phase = SwarmPhase.START
     }
 
     fun update(playerX: Float, playerY: Float) {
         if (chickens.isEmpty()) return
 
-        // di chuyển ngang
+        tick++
+
+        // --- Dùng thời gian thực thay vì tick ---
+        val now = System.currentTimeMillis()
+        if (now - lastPatternChange >= patternInterval) {
+            currentPattern = SwarmPattern.values().random()
+            lastPatternChange = now
+        }
+
+        // Nếu đổi sang ChickenInvaders thì reset đội hình
+        if (currentPattern != previousPattern) {
+            if (currentPattern == SwarmPattern.CHICKEN_INVADERS) {
+                prepareChickenInvaders()
+            }
+            previousPattern = currentPattern
+        }
+
+        when (currentPattern) {
+            SwarmPattern.HORIZONTAL -> moveCircular()
+            SwarmPattern.ZIGZAG -> moveCircular()
+            SwarmPattern.SIN_WAVE -> moveCircular()
+            SwarmPattern.CHICKEN_INVADERS -> moveCircular()
+        }
+
+//        when (currentPattern) {
+//            SwarmPattern.HORIZONTAL -> moveHorizontal()
+//            SwarmPattern.ZIGZAG -> moveZigZag()
+//            SwarmPattern.SIN_WAVE -> moveSinWave()
+//            SwarmPattern.CHICKEN_INVADERS -> moveChickenInvaders()
+//        }
+
+        chickens.forEach { it.update(playerX, playerY) }
+    }
+
+    private fun moveAfterChickenInvaders() {
+        for (chicken in chickens) chicken.x += swarmSpeed * dir
+        val hitLeft = chickens.minOf { it.x } <= 0f
+        val hitRight = chickens.maxOf { it.x + chickenBitmap.width } >= screenWidth.toFloat()
+        if (hitLeft || hitRight) {
+            dir *= -1
+            val drop = chickenBitmap.height / 2f
+            chickens.forEach { it.y += drop }
+        }
+    }
+
+    private fun moveZigZag() {
+        // tăng tốc ngang để biên độ rộng hơn
+        val horizontalSpeed = swarmSpeed * 1.5f
+
         for (chicken in chickens) {
-            chicken.x += swarmSpeed * dir
+            chicken.x += horizontalSpeed * dir
         }
 
         val hitLeft = chickens.minOf { it.x } <= 0f
@@ -68,11 +131,96 @@ class ChickenSwarm(
 
         if (hitLeft || hitRight) {
             dir *= -1
-            val drop = chickenBitmap.height / 2f
+            // tụt xuống ít hơn để chậm rãi hơn
+            val drop = chickenBitmap.height / 4f   // nhỏ hơn 1/2 chiều cao
             chickens.forEach { it.y += drop }
         }
+    }
 
-        chickens.forEach { it.update(playerX, playerY) }
+
+
+    private var sinWaveTick = 0
+
+    private fun moveSinWave() {
+        sinWaveTick++
+        for ((index, chicken) in chickens.withIndex()) {
+            chicken.x += swarmSpeed * dir
+            chicken.y += kotlin.math.sin((sinWaveTick + index * 20) / 20.0).toFloat() * 2f
+        }
+
+        val hitLeft = chickens.minOf { it.x } <= 0f
+        val hitRight = chickens.maxOf { it.x + chickenBitmap.width } >= screenWidth.toFloat()
+        if (hitLeft || hitRight) dir *= -1
+    }
+
+    private var angle = 0.0
+
+    private fun moveCircular() {
+        angle += 0.05
+        val centerX = screenWidth / 2f
+        val centerY = screenHeight / 3f
+        val radiusX = screenWidth / 3f
+        val radiusY = 80f
+
+        chickens.forEachIndexed { index, chicken ->
+            val theta = angle + index * (Math.PI / 12) // lệch nhau 15 độ
+            chicken.x = (centerX + radiusX * kotlin.math.cos(theta)).toFloat()
+            chicken.y = (centerY + radiusY * kotlin.math.sin(theta)).toFloat()
+        }
+    }
+
+
+
+    private fun moveChickenInvaders() {
+        when (phase) {
+            SwarmPhase.START -> {
+                // 1) Cột trái đi dọc xuống, giữ x cố định
+                val leftX = edgeMargin
+                leftChickens.forEachIndexed { idx, ch ->
+                    ch.x = leftX
+                    ch.y += descendSpeed
+                }
+
+                // 2) Cột phải đi dọc xuống, giữ x cố định
+                val rightX = (screenWidth - chickenBitmap.width - edgeMargin)
+                rightChickens.forEachIndexed { idx, ch ->
+                    ch.x = rightX
+                    ch.y += descendSpeed
+                }
+
+                // Kiểm tra "đã chạm đáy" bằng bottom coordinate
+                val leftBottom = leftChickens.maxOfOrNull { it.y + chickenBitmap.height } ?: Float.MIN_VALUE
+                val rightBottom = rightChickens.maxOfOrNull { it.y + chickenBitmap.height } ?: Float.MIN_VALUE
+
+                // Nếu cả hai cột đều đã chạm (hoặc vượt) đáy màn hình -> chuyển MERGE
+                if (leftBottom >= screenHeight.toFloat() && rightBottom >= screenHeight.toFloat()) {
+                    phase = SwarmPhase.MERGE
+                }
+            }
+
+            SwarmPhase.MERGE -> {
+                // Trước khi xếp hàng, sort chickens theo x để đảm bảo thứ tự trái->phải
+                chickens.sortBy { it.x }
+
+                val spacingX = chickenBitmap.width + 10
+                val midX = (screenWidth / 2f) - (chickens.size * spacingX) / 2f
+                val targetYUp = screenHeight * 1f / 3f // bay lên tới ~2/3 màn hình (từ trên)
+
+                chickens.forEachIndexed { i, chicken ->
+                    val desiredX = midX + i * spacingX
+                    // Lerp tới vị trí mong muốn (mượt)
+                    chicken.x += (desiredX - chicken.x) * mergeLerp
+                    chicken.y += (targetYUp - chicken.y) * mergeLerp
+                }
+
+                // Nếu tất cả gần target -> chuyển phase HORIZONTAL
+                if (chickens.all { abs(it.y - targetYUp) < 2f }) {
+                    phase = SwarmPhase.HORIZONTAL
+                }
+            }
+
+            SwarmPhase.HORIZONTAL -> moveAfterChickenInvaders()
+        }
     }
 
     fun draw(canvas: Canvas) {
@@ -80,6 +228,7 @@ class ChickenSwarm(
     }
 
     fun isEmpty(): Boolean = chickens.isEmpty()
+
 
     /**
      * Hàm dropLoot: gọi khi có gà chết
