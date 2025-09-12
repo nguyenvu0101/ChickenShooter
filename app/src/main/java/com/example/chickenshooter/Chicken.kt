@@ -18,95 +18,82 @@ class Chicken(
 ) {
     private var tick = 0
     private var lastShotTime = 0L
-    private val shotInterval = Random.nextLong(2000, 5000) // Bắn mỗi 2-5 giây
+    private var shotInterval = Random.nextLong(2000, 5000) // 2–5 giây
     private var angle = 0f
-    private var amplitude = Random.nextFloat() * 50 + 30 // Biên độ dao động 30-80
-    private var frequency = Random.nextFloat() * 0.3f + 0.1f // Tần số 0.1-0.4
+    private var amplitude = Random.nextFloat() * 50 + 30 // 30–80
+    private var frequency = Random.nextFloat() * 0.3f + 0.1f // 0.1–0.4
     private var originalX = x
     private var direction = if (Random.nextBoolean()) 1 else -1
 
-    // Projectile list
+    // Danh sách đạn
     val projectiles = mutableListOf<ChickenProjectile>()
 
     fun update(playerX: Float, playerY: Float) {
         tick++
         val currentTime = System.currentTimeMillis()
 
-        // Cập nhật vị trí theo pattern di chuyển
+        // Cập nhật vị trí
         when (moveType) {
-            0 -> {
-                // Di chuyển thẳng xuống
-                y += speed
-            }
-            1 -> {
-                // Sine wave - dao động ngang
+            0 -> y += speed // thẳng xuống
+            1 -> { // sine
                 y += speed
                 x = originalX + sin(tick * frequency) * amplitude
             }
-            2 -> {
-                // Cosine wave với biên độ lớn hơn
+            2 -> { // cosine
                 y += speed
                 x = originalX + cos(tick * frequency * 1.5f) * amplitude * 1.2f
             }
-            3 -> {
-                // Zigzag pattern
+            3 -> { // zigzag
                 y += speed
                 if (tick % 60 == 0) direction *= -1
                 x += direction * speed * 0.8f
             }
-            4 -> {
-                // Spiral pattern
+            4 -> { // spiral
                 y += speed * 0.7f
                 angle += 0.1f
                 x += cos(angle) * 3f
             }
-            5 -> {
-                // Erratic movement - di chuyển bất quy tắc
+            5 -> { // erratic
                 y += speed
-                if (tick % 30 == 0) {
-                    x += Random.nextFloat() * 40 - 20
-                }
+                if (tick % 30 == 0) x += Random.nextFloat() * 40 - 20
             }
-            6 -> {
-                // Follow player loosely - theo player nhưng chậm
+            6 -> { // follow
                 y += speed
                 val targetX = playerX - bitmap.width / 2
                 val diffX = targetX - x
-                x += diffX * 0.02f // Theo rất chậm
+                x += diffX * 0.02f
             }
-            7 -> {
-                // Figure-8 pattern
+            7 -> { // figure-8
                 y += speed * 0.8f
                 val t = tick * 0.05f
-                x = originalX + sin(t) * amplitude
-                x += cos(t * 2) * amplitude * 0.5f
+                x = originalX + sin(t) * amplitude + cos(t * 2) * amplitude * 0.5f
             }
-            8 -> {
-                // Bouncing horizontally
+            8 -> { // bouncing
                 y += speed
                 x += direction * speed * 1.5f
-                if (x <= 0 || x >= screenWidth - bitmap.width) {
-                    direction *= -1
-                }
+                if (x <= 0 || x >= screenWidth - bitmap.width) direction *= -1
             }
-            else -> {
-                y += speed
-            }
+            else -> y += speed
         }
 
         // Giới hạn trong màn hình
         x = x.coerceIn(0f, (screenWidth - bitmap.width).toFloat())
 
         // Bắn đạn
-        if (currentTime - lastShotTime > shotInterval && y > 0 && y < screenHeight) {
+        if (currentTime - lastShotTime > shotInterval && y in 0f..screenHeight.toFloat()) {
             shoot(playerX, playerY)
             lastShotTime = currentTime
+            shotInterval = Random.nextLong(2000, 5000) // reset random
         }
 
-        // Cập nhật projectiles
-        projectiles.removeAll { projectile ->
+        // Cập nhật đạn (dùng iterator để tránh lag)
+        val iterator = projectiles.iterator()
+        while (iterator.hasNext()) {
+            val projectile = iterator.next()
             projectile.update()
-            projectile.y > screenHeight || projectile.y < 0
+            if (projectile.y > screenHeight || projectile.y < 0) {
+                iterator.remove()
+            }
         }
     }
 
@@ -115,72 +102,70 @@ class Chicken(
         val centerY = y + bitmap.height
 
         when (Random.nextInt(4)) {
-            0 -> {
-                // Bắn thẳng xuống
+            0 -> { // thẳng xuống
                 projectiles.add(ChickenProjectile(centerX, centerY, 0f, 8f, ProjectileType.SHIT))
             }
-            1 -> {
-                // Bắn về phía player
+            1 -> { // hướng về player
                 val dx = playerX - centerX
                 val dy = playerY - centerY
                 val distance = sqrt(dx * dx + dy * dy)
                 if (distance > 0) {
                     val speed = 6f
-                    projectiles.add(ChickenProjectile(
-                        centerX, centerY,
-                        (dx / distance) * speed,
-                        (dy / distance) * speed,
-                        ProjectileType.EGG
-                    ))
+                    projectiles.add(
+                        ChickenProjectile(
+                            centerX, centerY,
+                            (dx / distance) * speed,
+                            (dy / distance) * speed,
+                            ProjectileType.EGG
+                        )
+                    )
                 }
             }
-            2 -> {
-                // Bắn 3 viên spread
+            2 -> { // spread 3 viên
                 val baseSpeed = 7f
                 for (i in -1..1) {
                     val angle = i * 0.3f
-                    projectiles.add(ChickenProjectile(
-                        centerX, centerY,
-                        sin(angle) * baseSpeed,
-                        cos(angle) * baseSpeed,
-                        ProjectileType.SHIT
-                    ))
+                    projectiles.add(
+                        ChickenProjectile(
+                            centerX, centerY,
+                            sin(angle) * baseSpeed,
+                            cos(angle) * baseSpeed,
+                            ProjectileType.SHIT
+                        )
+                    )
                 }
             }
-            3 -> {
-                // Bắn theo cung tròn
+            3 -> { // bắn theo góc tới player
                 val dx = playerX - centerX
                 val dy = playerY - centerY
-                val targetAngle = atan2(dx, dy)
+                val targetAngle = atan2(dy, dx) // fix: y trước, x sau
                 val speed = 5f
-                projectiles.add(ChickenProjectile(
-                    centerX, centerY,
-                    sin(targetAngle) * speed,
-                    cos(targetAngle) * speed,
-                    ProjectileType.EGG
-                ))
+                projectiles.add(
+                    ChickenProjectile(
+                        centerX, centerY,
+                        cos(targetAngle) * speed,
+                        sin(targetAngle) * speed,
+                        ProjectileType.EGG
+                    )
+                )
             }
         }
     }
 
-    fun getRect(): Rect = Rect(x.toInt(), y.toInt(),
-        x.toInt() + bitmap.width, y.toInt() + bitmap.height)
+    fun getRect(): Rect = Rect(
+        x.toInt(), y.toInt(),
+        x.toInt() + bitmap.width, y.toInt() + bitmap.height
+    )
 
     fun draw(canvas: Canvas) {
         canvas.drawBitmap(bitmap, x, y, null)
-
-        // Vẽ projectiles
         projectiles.forEach { it.draw(canvas) }
     }
 
-    fun isOffScreen(): Boolean {
-        return y > screenHeight + bitmap.height
-    }
+    fun isOffScreen(): Boolean = y > screenHeight + bitmap.height
 }
 
-enum class ProjectileType {
-    SHIT, EGG
-}
+enum class ProjectileType { SHIT, EGG }
 
 class ChickenProjectile(
     var x: Float,
@@ -192,8 +177,7 @@ class ChickenProjectile(
     companion object {
         private var eggBitmap: Bitmap? = null
         private var shitBitmap: Bitmap? = null
-
-        private const val PROJECTILE_SIZE = 50  // px
+        private const val PROJECTILE_SIZE = 50 // px
 
         fun init(resources: android.content.res.Resources) {
             if (eggBitmap == null) {
@@ -205,7 +189,6 @@ class ChickenProjectile(
                 shitBitmap = Bitmap.createScaledBitmap(original, PROJECTILE_SIZE, PROJECTILE_SIZE, true)
             }
         }
-
     }
 
     fun update() {
@@ -213,10 +196,22 @@ class ChickenProjectile(
         y += velocityY
     }
 
-    fun getRect(): Rect = Rect(
-        x.toInt() - 5, y.toInt() - 5,
-        x.toInt() + 5, y.toInt() + 5
-    )
+    fun getRect(): Rect {
+        val bitmap = when (type) {
+            ProjectileType.SHIT -> shitBitmap
+            ProjectileType.EGG -> eggBitmap
+        }
+        return if (bitmap != null) {
+            Rect(
+                (x - bitmap.width / 2).toInt(),
+                (y - bitmap.height / 2).toInt(),
+                (x + bitmap.width / 2).toInt(),
+                (y + bitmap.height / 2).toInt()
+            )
+        } else {
+            Rect(x.toInt() - 5, y.toInt() - 5, x.toInt() + 5, y.toInt() + 5)
+        }
+    }
 
     fun draw(canvas: Canvas) {
         val bitmap = when (type) {
@@ -226,7 +221,6 @@ class ChickenProjectile(
         if (bitmap != null) {
             canvas.drawBitmap(bitmap, x - bitmap.width / 2, y - bitmap.height / 2, null)
         } else {
-            // fallback: vẽ hình tròn nếu chưa có ảnh
             val paint = android.graphics.Paint().apply {
                 color = when (type) {
                     ProjectileType.SHIT -> android.graphics.Color.BLACK
