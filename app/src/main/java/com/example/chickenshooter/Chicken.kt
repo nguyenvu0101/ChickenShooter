@@ -83,7 +83,7 @@ class Chicken(
         if (currentTime - lastShotTime > shotInterval && y in 0f..screenHeight.toFloat()) {
             shoot(playerX, playerY)
             lastShotTime = currentTime
-            shotInterval = Random.nextLong(2000, 5000) // reset random
+            shotInterval = Random.nextLong(5000, 11000) // reset random
         }
 
         // Cập nhật đạn (dùng iterator để tránh lag)
