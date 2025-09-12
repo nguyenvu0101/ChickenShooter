@@ -158,15 +158,17 @@ class Level1(
         }
 
         // --- THÊM MỚI: thỉnh thoảng spawn đàn gà ---
-        if (Random.nextInt(0, 400) == 0) {   // 1/400 frame
-            val swarm = ChickenSwarm(
-                context = context,
-                numChickens = 6,
-                chickenBitmap = scaledChickenBitmap,
-                screenWidth = context.resources.displayMetrics.widthPixels,
-                screenHeight = context.resources.displayMetrics.heightPixels
-            )
-            swarms.add(swarm)
+        if (!isBossSpawned){
+            if (Random.nextInt(0, 600) == 0) {   // 1/400 frame
+                val swarm = ChickenSwarm(
+                    context = context,
+                    numChickens = 6,
+                    chickenBitmap = scaledChickenBitmap,
+                    screenWidth = context.resources.displayMetrics.widthPixels,
+                    screenHeight = context.resources.displayMetrics.heightPixels
+                )
+                swarms.add(swarm)
+            }
         }
 
         // Update chickens và pass player position cho AI targeting
