@@ -8,7 +8,7 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 enum class SwarmPattern {
-    HORIZONTAL, ZIGZAG, SIN_WAVE, CHICKEN_INVADERS
+    HORIZONTAL, SIN_WAVE, CHICKEN_INVADERS
 }
 
 enum class SwarmPhase { START, MERGE, HORIZONTAL }
@@ -41,6 +41,25 @@ class ChickenSwarm(
     // --- Thêm biến quản lý thời gian ---
     private var lastPatternChange = System.currentTimeMillis()
     private val patternInterval = 5000L   // 5 giây đổi pattern
+
+    // --- Time-based SinWave config ---
+    private var lastUpdateNano: Long = System.nanoTime()
+    private var totalTimeSec = 0f
+
+    private var fallDurationSec = 5f   // gà rơi hết màn hình trong 2 giây
+    private var waveCount = 3f         // số lần lượn trong suốt hành trình
+    private var fallSpeedPxPerSec = 0f
+    private var waveAngularSpeed = 0.0 // rad/s
+
+    // Với đàn trái → bay từ mép trái sang phải
+    val centerLeftX = screenWidth * 0.0f    // bắt đầu sát mép trái
+    val amplitudeLeft = screenWidth * 0.5f  // dao động nửa màn hình
+
+    // Với đàn phải → bay từ mép phải sang trái
+    val centerRightX = screenWidth * 1.0f   // bắt đầu sát mép phải
+    val amplitudeRight = screenWidth * 0.5f // dao động nửa màn hình
+
+
 
     init {
         prepareChickenInvaders()
@@ -84,25 +103,19 @@ class ChickenSwarm(
 
         // Nếu đổi sang ChickenInvaders thì reset đội hình
         if (currentPattern != previousPattern) {
-            if (currentPattern == SwarmPattern.CHICKEN_INVADERS) {
-                prepareChickenInvaders()
+            when (currentPattern) {
+                SwarmPattern.CHICKEN_INVADERS -> prepareChickenInvaders()
+                SwarmPattern.SIN_WAVE -> prepareDoubleSinWave()
+                SwarmPattern.HORIZONTAL -> { /* prepareHorizontal() nếu cần */ }
             }
             previousPattern = currentPattern
         }
 
         when (currentPattern) {
             SwarmPattern.HORIZONTAL -> moveCircular()
-            SwarmPattern.ZIGZAG -> moveCircular()
-            SwarmPattern.SIN_WAVE -> moveCircular()
-            SwarmPattern.CHICKEN_INVADERS -> moveCircular()
+            SwarmPattern.SIN_WAVE -> moveDoubleSinWave()
+            SwarmPattern.CHICKEN_INVADERS -> moveChickenInvaders()
         }
-
-//        when (currentPattern) {
-//            SwarmPattern.HORIZONTAL -> moveHorizontal()
-//            SwarmPattern.ZIGZAG -> moveZigZag()
-//            SwarmPattern.SIN_WAVE -> moveSinWave()
-//            SwarmPattern.CHICKEN_INVADERS -> moveChickenInvaders()
-//        }
 
         chickens.forEach { it.update(playerX, playerY) }
     }
@@ -137,21 +150,89 @@ class ChickenSwarm(
         }
     }
 
+    // 2 đàn riêng
+    private val leftWave = mutableListOf<Chicken>()
+    private val rightWave = mutableListOf<Chicken>()
 
+    private fun prepareDoubleSinWave() {
+        chickens.clear()
+        leftWave.clear()
+        rightWave.clear()
 
-    private var sinWaveTick = 0
+        // --- Reset time & tính tốc độ rơi ---
+        fallSpeedPxPerSec = screenHeight / fallDurationSec
+        waveAngularSpeed = 2.0 * Math.PI * (waveCount / fallDurationSec)
+        lastUpdateNano = System.nanoTime()
+        totalTimeSec = 0f
 
-    private fun moveSinWave() {
-        sinWaveTick++
-        for ((index, chicken) in chickens.withIndex()) {
-            chicken.x += swarmSpeed * dir
-            chicken.y += kotlin.math.sin((sinWaveTick + index * 20) / 20.0).toFloat() * 2f
+        val half = numChickens / 2
+        val verticalSpacing = chickenBitmap.height + 20
+
+        for (i in 0 until half) {
+            // đàn trái
+            val ch = Chicken(
+                x = chickenBitmap.width.toFloat(),
+                y = -(i * (chickenBitmap.height + 20)).toFloat(),
+                bitmap = chickenBitmap,
+                speed = 0f,
+                moveType = 0,
+                hp = 3,
+                screenWidth = screenWidth,
+                screenHeight = screenHeight
+            )
+            leftWave.add(ch)
+            chickens.add(ch)
+        }
+        for (i in 0 until half) {
+            // đàn phải
+            val ch = Chicken(
+                x = (screenWidth - chickenBitmap.width).toFloat(),
+                y = -(i * (chickenBitmap.height + 20)).toFloat(),
+                bitmap = chickenBitmap,
+                speed = 0f,
+                moveType = 0,
+                hp = 3,
+                screenWidth = screenWidth,
+                screenHeight = screenHeight
+            )
+            rightWave.add(ch)
+            chickens.add(ch)
+        }
+    }
+
+    private val indexPhaseOffset = 0.4f   // lệch pha giữa các gà (rad)
+
+    private fun moveDoubleSinWave() {
+        val nowNano = System.nanoTime()
+        val dtSec = (nowNano - lastUpdateNano) / 1_000_000_000f
+        lastUpdateNano = nowNano
+        totalTimeSec += dtSec
+
+        val centerLeftX = screenWidth * 0.25f
+        val centerRightX = screenWidth * 0.75f
+
+        for ((index, chicken) in leftWave.withIndex()) {
+            chicken.y += fallSpeedPxPerSec * dtSec
+            val phase = waveAngularSpeed * totalTimeSec + index * indexPhaseOffset
+            // dao động từ 0 đến 1 màn hình
+            chicken.x = (screenWidth / 2f) * (1 + sin(phase).toFloat())
         }
 
-        val hitLeft = chickens.minOf { it.x } <= 0f
-        val hitRight = chickens.maxOf { it.x + chickenBitmap.width } >= screenWidth.toFloat()
-        if (hitLeft || hitRight) dir *= -1
+        for ((index, chicken) in rightWave.withIndex()) {
+            chicken.y += fallSpeedPxPerSec * dtSec
+            val phase = waveAngularSpeed * totalTimeSec + index * indexPhaseOffset
+            // đảo ngược sin để đi ngược chiều
+            chicken.x = screenWidth - (screenWidth / 2f) * (1 + sin(phase).toFloat())
+        }
+
+
+        // Khi tất cả rơi hết -> clear hoặc respawn
+        if (chickens.all { it.y > screenHeight + chickenBitmap.height }) {
+            // Ví dụ: respawn lại
+            // prepareDoubleSinWave()
+        }
     }
+
 
     // --- move circular code
     private var angle = 0.0
