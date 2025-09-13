@@ -153,24 +153,61 @@ class ChickenSwarm(
         if (hitLeft || hitRight) dir *= -1
     }
 
+    // --- move circular code
     private var angle = 0.0
+    private var globalProgress = 0f   // tiến trình chung
+    private var enterFromLeft = Random.nextBoolean()  // random trái/phải
+
+    // easing mượt mà
+    private fun easeInOutQuad(t: Float): Float {
+        return if (t < 0.5f) {
+            2f * t * t
+        } else {
+            1f - ((-2f * t + 2f).let { it * it }) / 2f
+        }
+    }
 
     private fun moveCircular() {
         angle += 0.05
+
+        // tăng dần tiến trình
+        if (globalProgress < 1f) {
+            globalProgress += 0.01f
+        }
+
         val centerX = screenWidth / 2f
         val centerY = screenHeight / 3f
         val radiusX = screenWidth / 3f
         val radiusY = 80f
 
         chickens.forEachIndexed { index, chicken ->
-            val theta = angle + index * (Math.PI / 12) // lệch nhau 15 độ
-            chicken.x = (centerX + radiusX * kotlin.math.cos(theta)).toFloat()
-            chicken.y = (centerY + radiusY * kotlin.math.sin(theta)).toFloat()
+            val theta = angle + index * (Math.PI / 12)
+
+            // vị trí mục tiêu trên quỹ đạo
+            val targetX = (centerX + radiusX * kotlin.math.cos(theta)).toFloat()
+            val targetY = (centerY + radiusY * kotlin.math.sin(theta)).toFloat()
+
+            // spawn trễ dần theo index
+            val delay = index * 0.1f
+            val localProgress = ((globalProgress - delay).coerceIn(0f, 1f))
+            val eased = easeInOutQuad(localProgress)
+
+            // xuất phát từ trái hoặc phải
+            val startX = if (enterFromLeft) {
+                -chicken.bitmap.width.toFloat() - index * 40f  // ngoài màn hình trái
+            } else {
+                screenWidth + index * 40f  // ngoài màn hình phải
+            }
+            val startY = targetY  // cùng cao độ với mục tiêu
+
+            // lerp từ start -> target
+            chicken.x = startX + (targetX - startX) * eased
+            chicken.y = startY + (targetY - startY) * eased
         }
     }
 
 
-
+    // --- move chickenInvaders code
     private fun moveChickenInvaders() {
         when (phase) {
             SwarmPhase.START -> {
