@@ -13,9 +13,10 @@ import com.google.firebase.ktx.Firebase
 
 import android.content.Context
 import android.graphics.Rect
-import android.view.MotionEvent
+import android.view.*
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import androidx.appcompat.app.AlertDialog
 
 class StartMenuActivity : AppCompatActivity() {
 
@@ -28,13 +29,14 @@ class StartMenuActivity : AppCompatActivity() {
     private val auth by lazy { Firebase.auth }
     private val prefs by lazy { getSharedPreferences("game", MODE_PRIVATE) }
 
-    // UI (bắt buộc phải có trong layout)
+    // UI
     private lateinit var tvMode: TextView
     private lateinit var tvPlayerName: TextView
     private lateinit var tvCoins: TextView
     private lateinit var etName: EditText
     private lateinit var btnSaveName: Button
     private lateinit var btnLogin: Button
+    private lateinit var btnCart: ImageButton // Giỏ hàng
 
     private var profileListener: ValueEventListener? = null
 
@@ -47,7 +49,10 @@ class StartMenuActivity : AppCompatActivity() {
         val plane1 = findViewById<ImageView>(R.id.plane1Img)
         val plane2 = findViewById<ImageView>(R.id.plane2Img)
 
-// Khởi tạo mặc định
+        // Tham chiếu giỏ hàng
+        btnCart = findViewById(R.id.btnCart)
+
+        // Khởi tạo mặc định
         selectedBgView = bg1
         selectedPlaneView = plane1
         selectedBgView.setBackgroundResource(R.drawable.bg_selected_border)
@@ -70,12 +75,14 @@ class StartMenuActivity : AppCompatActivity() {
             selectedPlaneView.background = null
             plane1.setBackgroundResource(R.drawable.bg_selected_border)
             selectedPlaneView = plane1
+            prefs.edit().putString("current_plane", "player").apply()
         }
         plane2.setOnClickListener {
             selectedPlane = R.drawable.player2_v2
             selectedPlaneView.background = null
             plane2.setBackgroundResource(R.drawable.bg_selected_border)
             selectedPlaneView = plane2
+            prefs.edit().putString("current_plane", "player2_v2").apply()
         }
 
         tvMode = findViewById(R.id.tvMode)
@@ -119,11 +126,34 @@ class StartMenuActivity : AppCompatActivity() {
                 }
             }
         }
+
+        // Sự kiện mở giỏ hàng
+        btnCart.setOnClickListener {
+            val intent = Intent(this, CartActivity::class.java)
+            startActivity(intent)
+        }
+    }
+
+    private fun getCurrentCoins(): Long {
+        return if (isOfflineMode()) {
+            prefs.getLong("coins", 0L)
+        } else {
+            tvCoins.text.toString().replace("Xu: ", "").toLongOrNull() ?: 0L
+        }
+    }
+
+    private fun setCurrentCoins(coins: Long) {
+        if (isOfflineMode()) {
+            prefs.edit().putLong("coins", coins).apply()
+        }
+        // Nếu online cần update lên firebase
+        // (Tương tự update display name, bạn bổ sung nếu cần)
     }
 
     override fun onResume() {
         super.onResume()
         checkModeAndLoadProfile()
+        updateSelectedPlaneFromPrefs()
     }
 
     override fun onDestroy() {
@@ -171,6 +201,28 @@ class StartMenuActivity : AppCompatActivity() {
 
     private fun setOfflineName(name: String) {
         prefs.edit().putString("display_name", name).apply()
+    }
+
+    // Cập nhật máy bay đang chọn từ SharedPreferences khi quay lại menu
+    private fun updateSelectedPlaneFromPrefs() {
+        val currentPlaneId = prefs.getString("current_plane", "player")
+        selectedPlane = when (currentPlaneId) {
+            "player2_v2" -> R.drawable.player2_v2
+            "player" -> R.drawable.player
+            else -> R.drawable.player
+        }
+        val plane1 = findViewById<ImageView>(R.id.plane1Img)
+        val plane2 = findViewById<ImageView>(R.id.plane2Img)
+        // Reset viền
+        plane1.background = null
+        plane2.background = null
+        if (currentPlaneId == "player2_v2") {
+            plane2.setBackgroundResource(R.drawable.bg_selected_border)
+            selectedPlaneView = plane2
+        } else {
+            plane1.setBackgroundResource(R.drawable.bg_selected_border)
+            selectedPlaneView = plane1
+        }
     }
 
     // ONLINE (RTDB)

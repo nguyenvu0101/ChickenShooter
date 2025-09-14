@@ -156,7 +156,7 @@ class Level1(
                     usedBullets.add(bullet)
                     if (chicken.hp <= 0) {
                         deadChickens.add(chicken)
-                        if ((0..99).random() < 30) {
+                        if ((0..99).random() < 10) {
                             shields.add(Shield(chicken.x, chicken.y, scaledShieldBitmap, 5))
                         }
                         // 10% rơi item
@@ -164,7 +164,7 @@ class Level1(
                             val itemType = (0..2).random()
                             items.add(Item(chicken.x, chicken.y, itemBitmaps[itemType], ItemType.values()[itemType], 12)) // item đạn rơi nhanh
                         }
-                        if (Math.random() < 0.35) {
+                        if (Math.random() < 0.10) {
                             spawnMana(chicken.x, chicken.y, manaBitmap , 8)
                         }
                         spawnCoin(chicken.x, chicken.y, chicken.bitmap.width, chicken.bitmap.height)
