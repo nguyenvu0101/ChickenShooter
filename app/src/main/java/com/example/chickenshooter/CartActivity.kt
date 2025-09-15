@@ -142,7 +142,10 @@ class CartActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("game", MODE_PRIVATE)
         prefs.edit().putString("current_plane", planeId).apply()
     }
-
+    private fun setCurrentUsedBullet(bulletId: String) {
+        val prefs = getSharedPreferences("game", MODE_PRIVATE)
+        prefs.edit().putString("current_bullet", bulletId).apply()
+    }
     private fun goToStartMenu() {
         val intent = Intent(this, StartMenuActivity::class.java)
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
