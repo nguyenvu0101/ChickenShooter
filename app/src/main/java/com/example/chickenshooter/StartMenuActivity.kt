@@ -44,6 +44,8 @@ class StartMenuActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_start_menu)
 
+        prefs.edit().putString("current_plane", "player").apply()
+
         val bg1 = findViewById<ImageView>(R.id.bg1Img)
         val bg2 = findViewById<ImageView>(R.id.bg2Img)
         val plane1 = findViewById<ImageView>(R.id.plane1Img)
@@ -206,22 +208,42 @@ class StartMenuActivity : AppCompatActivity() {
     // Cập nhật máy bay đang chọn từ SharedPreferences khi quay lại menu
     private fun updateSelectedPlaneFromPrefs() {
         val currentPlaneId = prefs.getString("current_plane", "player")
-        selectedPlane = when (currentPlaneId) {
-            "player2_v2" -> R.drawable.player2_v2
-            "player" -> R.drawable.player
-            else -> R.drawable.player
-        }
         val plane1 = findViewById<ImageView>(R.id.plane1Img)
         val plane2 = findViewById<ImageView>(R.id.plane2Img)
-        // Reset viền
+        val planePreview = findViewById<ImageView>(R.id.planePreviewImg)
+        val planeSelectLayout = findViewById<LinearLayout>(R.id.planeSelectLayout)
+
+        // Reset viền chọn
         plane1.background = null
         plane2.background = null
+
+        // Nếu chọn máy bay đặc biệt
+        if (currentPlaneId == "player_cart1") {
+            planePreview.setImageResource(R.drawable.player_cart1)
+            planePreview.visibility = View.VISIBLE
+            planeSelectLayout.visibility = View.GONE
+            // FIX: cập nhật biến selectedPlane
+            selectedPlane = R.drawable.player_cart1
+            return
+        }
+        if (currentPlaneId == "player_cart2") {
+            planePreview.setImageResource(R.drawable.player_cart2)
+            planePreview.visibility = View.VISIBLE
+            planeSelectLayout.visibility = View.GONE
+            selectedPlane = R.drawable.player_cart2
+            return
+        }
+
+        // Nếu là máy bay mặc định, hiện 2 máy bay nhỏ, ẩn máy bay lớn
+        planePreview.visibility = View.GONE
+        planeSelectLayout.visibility = View.VISIBLE
+
         if (currentPlaneId == "player2_v2") {
             plane2.setBackgroundResource(R.drawable.bg_selected_border)
-            selectedPlaneView = plane2
+            selectedPlane = R.drawable.player2_v2
         } else {
             plane1.setBackgroundResource(R.drawable.bg_selected_border)
-            selectedPlaneView = plane1
+            selectedPlane = R.drawable.player
         }
     }
 

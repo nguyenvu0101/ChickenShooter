@@ -43,15 +43,15 @@ class CartActivity : AppCompatActivity() {
         val btnBuyPlane1 = findViewById<Button>(R.id.btnBuyPlane1)
         val btnBuyPlane2 = findViewById<Button>(R.id.btnBuyPlane2)
 
-        setupPlaneButton(btnBuyPlane1, "player", pricePlane1, "Máy bay thường", ownedPlanes, currentPlane, tvCoins)
-        setupPlaneButton(btnBuyPlane2, "player2_v2", pricePlane2, "Máy bay siêu tốc", ownedPlanes, currentPlane, tvCoins)
+        setupPlaneButton(btnBuyPlane1, "player_cart1", pricePlane1, "Máy bay thường", ownedPlanes, currentPlane, tvCoins)
+        setupPlaneButton(btnBuyPlane2, "player_cart2", pricePlane2, "Máy bay siêu tốc", ownedPlanes, currentPlane, tvCoins)
 
         val ownedBullets = prefs.getStringSet("owned_bullets", emptySet()) ?: emptySet()
         val btnBuyBullet1 = findViewById<Button>(R.id.btnBuyBullet1)
         val btnBuyBullet2 = findViewById<Button>(R.id.btnBuyBullet2)
 
-        setupBulletButton(btnBuyBullet1, "bullet", priceBullet1, "Đạn thường", ownedBullets, tvCoins)
-        setupBulletButton(btnBuyBullet2, "bullet_pierce", priceBullet2, "Đạn xuyên phá", ownedBullets, tvCoins)
+        setupBulletButton(btnBuyBullet1, "bullet_cart1", priceBullet1, "Đạn thường", ownedBullets, tvCoins)
+        setupBulletButton(btnBuyBullet2, "bullet_cart2", priceBullet2, "Đạn xuyên phá", ownedBullets, tvCoins)
     }
 
     private fun setupPlaneButton(
@@ -111,7 +111,7 @@ class CartActivity : AppCompatActivity() {
                     prefs.edit().putLong("coins", coins).apply()
                     tvCoins.text = "Xu: $coins"
                     addBulletToCollection(bulletId)
-                    btn.text = "Đã mua"
+                    btn.text = "Dùng"
                     btn.isEnabled = false
                     Toast.makeText(this, "Mua $itemName thành công!", Toast.LENGTH_SHORT).show()
                 } else {
@@ -119,7 +119,7 @@ class CartActivity : AppCompatActivity() {
                 }
             }
         } else {
-            btn.text = "Đã mua"
+            btn.text = "Dùng"
             btn.isEnabled = false
         }
     }
