@@ -198,7 +198,7 @@ class Level1(
                     if (chicken.hp <= 0) {
                         deadChickens.add(chicken)
                         // Drop shields
-                        if ((0..99).random() < 30) {
+                        if ((0..99).random() < 10) {
                             shields.add(Shield(chicken.x.toInt(), chicken.y.toInt(), scaledShieldBitmap, 5))
                         }
                         // Drop items
@@ -207,7 +207,7 @@ class Level1(
                             items.add(Item(chicken.x.toInt(), chicken.y.toInt(), itemBitmaps[itemType], ItemType.values()[itemType], 12))
                         }
                         // Drop mana
-                        if (Math.random() < 0.35) {
+                        if (Math.random() < 0.10) {
                             spawnMana(chicken.x.toInt(), chicken.y.toInt(), manaBitmap, 8)
                         }
                         // Drop coins
