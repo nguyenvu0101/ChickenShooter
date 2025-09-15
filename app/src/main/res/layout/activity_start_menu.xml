@@ -128,7 +128,19 @@
                 android:textSize="20sp"
                 android:textStyle="bold" />
 
+            <!-- Máy bay đang chọn, mặc định ẨN -->
+            <ImageView
+                android:id="@+id/planePreviewImg"
+                android:layout_width="90dp"
+                android:layout_height="90dp"
+                android:layout_gravity="center"
+                android:layout_marginBottom="16dp"
+                android:src="@drawable/player"
+                android:visibility="gone" />
+
+            <!-- 2 máy bay nhỏ để chọn -->
             <LinearLayout
+                android:id="@+id/planeSelectLayout"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="24dp"
@@ -165,4 +177,16 @@
 
         </LinearLayout>
     </ScrollView>
+
+    <!-- NÚT GIỎ HÀNG ĐƯA XUỐNG DƯỚI CÙNG ĐỂ ĐƯỢC ƯU TIÊN CLICK -->
+    <ImageButton
+        android:id="@+id/btnCart"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:src="@drawable/cart"
+        android:scaleType="centerInside"
+        android:background="@android:color/transparent"
+        android:layout_gravity="end|top"
+        android:layout_margin="16dp" />
+
 </FrameLayout>

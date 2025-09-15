@@ -287,6 +287,7 @@ class Level4(
         levelTimer = 0
         pickedGunMode = null
         saveCoinsToSystem()
+        manaCount = 0
     }
     override fun canUseMissile(): Boolean = manaCount >= manaNeededForMissile && !isLevelFinished
 

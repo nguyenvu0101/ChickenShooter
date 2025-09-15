@@ -1,0 +1,287 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:cardview="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F5F6FA">
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp">
+
+        <!-- Tiêu đề -->
+        <TextView
+            android:text="Cửa hàng"
+            android:textSize="26sp"
+            android:textStyle="bold"
+            android:textColor="#22223B"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginBottom="20dp" />
+
+        <!-- Số xu người chơi -->
+        <TextView
+            android:id="@+id/tvCoinsInCart"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Xu: 0"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="#22223B"
+            android:layout_gravity="center"
+            android:layout_marginBottom="12dp"/>
+
+        <!-- Danh sách máy bay -->
+        <TextView
+            android:text="Máy bay"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#4F8EF7"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Máy bay 1 -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            cardview:cardCornerRadius="16dp"
+            cardview:cardElevation="8dp"
+            android:layout_marginBottom="12dp"
+            android:layout_marginTop="4dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="16dp"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:layout_width="64dp"
+                    android:layout_height="64dp"
+                    android:src="@drawable/player_cart1"
+                    android:scaleType="centerInside" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_weight="1"
+                    android:paddingStart="16dp">
+
+                    <TextView
+                        android:text="Máy bay thường"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="#22223B"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                    <TextView
+                        android:id="@+id/tvPricePlane1"
+                        android:text="Giá: 0 xu"
+                        android:textSize="15sp"
+                        android:textColor="#4F8EF7"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"/>
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/btnBuyPlane1"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Mua"
+                    android:textStyle="bold"
+                    android:backgroundTint="#4F8EF7"
+                    android:textColor="@android:color/white" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Máy bay 2 -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            cardview:cardCornerRadius="16dp"
+            cardview:cardElevation="8dp"
+            android:layout_marginBottom="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="16dp"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:layout_width="64dp"
+                    android:layout_height="64dp"
+                    android:src="@drawable/player_cart2"
+                    android:scaleType="centerInside" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_weight="1"
+                    android:paddingStart="16dp">
+
+                    <TextView
+                        android:text="Máy bay siêu tốc"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="#22223B"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                    <TextView
+                        android:id="@+id/tvPricePlane2"
+                        android:text="Giá: 0 xu"
+                        android:textSize="15sp"
+                        android:textColor="#4F8EF7"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"/>
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/btnBuyPlane2"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Mua"
+                    android:textStyle="bold"
+                    android:backgroundTint="#4F8EF7"
+                    android:textColor="@android:color/white" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Danh sách đạn -->
+        <TextView
+            android:text="Đạn"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#F76D6D"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Đạn thường -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            cardview:cardCornerRadius="16dp"
+            cardview:cardElevation="8dp"
+            android:layout_marginBottom="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="16dp"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:layout_width="64dp"
+                    android:layout_height="64dp"
+                    android:src="@drawable/bullet_cart1"
+                    android:scaleType="centerInside" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_weight="1"
+                    android:paddingStart="16dp">
+
+                    <TextView
+                        android:text="Đạn thường"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="#22223B"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                    <TextView
+                        android:id="@+id/tvPriceBullet1"
+                        android:text="Giá: 0 xu"
+                        android:textSize="15sp"
+                        android:textColor="#F76D6D"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"/>
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/btnBuyBullet1"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Mua"
+                    android:textStyle="bold"
+                    android:backgroundTint="#F76D6D"
+                    android:textColor="@android:color/white" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Đạn xuyên phá -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            cardview:cardCornerRadius="16dp"
+            cardview:cardElevation="8dp"
+            android:layout_marginBottom="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="16dp"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:layout_width="64dp"
+                    android:layout_height="64dp"
+                    android:src="@drawable/bullet"
+                    android:scaleType="centerInside" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_weight="1"
+                    android:paddingStart="16dp">
+
+                    <TextView
+                        android:text="Đạn xuyên phá"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="#22223B"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                    <TextView
+                        android:id="@+id/tvPriceBullet2"
+                        android:text="Giá: 0 xu"
+                        android:textSize="15sp"
+                        android:textColor="#F76D6D"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"/>
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/btnBuyBullet2"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Mua"
+                    android:textStyle="bold"
+                    android:backgroundTint="#F76D6D"
+                    android:textColor="@android:color/white" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Thêm các loại máy bay/đạn khác nếu muốn, chỉ cần copy CardView và chỉnh thông tin -->
+
+    </LinearLayout>
+</ScrollView>
