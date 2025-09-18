@@ -1,4 +1,4 @@
-    package com.example.chickenshooter
+package com.example.chickenshooter
 
     import android.content.Context
     import android.graphics.BitmapFactory
@@ -69,10 +69,25 @@
         private lateinit var player: Player
         private val bullets = mutableListOf<Bullet>()
 
+        // Movement variables for 4-directional smooth movement
+        private var targetX = 0f
+        private var targetY = 0f
+        private val movementSpeed = 12f // Increased from 8f to 12f for faster movement
+        private var isMoving = false
+
+        // Sound effect variables
+        private var borderSoundId: Int = 0
+
         // âm thanh
         private lateinit var soundPool: SoundPool
         private var gunshotSoundId: Int = 0
         private var missileSoundId: Int = 0
+        private var warningSoundId: Int = 0
+
+        // Warning system for halfway screen crossing
+        private var hasPlayedWarning = false
+        private var warningCooldown = 0
+        private val warningCooldownDuration = 90 // 1.5 seconds at 60fps (reduced from 180)
 
         // Level
         private var level = 1
@@ -148,6 +163,12 @@
             soundPool = SoundPool.Builder().setMaxStreams(5).build()
             gunshotSoundId = soundPool.load(context, R.raw.laser, 1)
             missileSoundId = soundPool.load(context, R.raw.tieng_bom_no, 1)
+            borderSoundId = soundPool.load(context, R.raw.border, 1)
+            warningSoundId = soundPool.load(context, R.raw.warning, 1)
+
+            // Initialize target positions for smooth movement
+            targetX = centerX.toFloat()
+            targetY = bottomY.toFloat()
 
 
             // chức năng online/offline
@@ -383,6 +404,56 @@
                 missile = null
                 currentLevel.manaCount = 0
             }
+
+            // Xử lý di chuyển mượt mà cho máy bay
+            if (isMoving) {
+                val dx = targetX - player.x
+                val dy = targetY - player.y
+                val distance = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+
+                // Nếu khoảng cách còn lại lớn hơn tốc độ di chuyển, tiếp tục di chuyển
+                if (distance > movementSpeed) {
+                    player.x = (player.x + (dx / distance * movementSpeed)).toInt()
+                    player.y = (player.y + (dy / distance * movementSpeed)).toInt()
+                } else {
+                    // Đến gần mục tiêu, đặt lại vị trí chính xác
+                    player.x = targetX.toInt()
+                    player.y = targetY.toInt()
+                    isMoving = false
+                }
+            }
+
+            // Kiểm tra va chạm với biên màn hình và phát âm thanh (trừ biên dưới)
+            val borderThreshold = 5f // ngưỡng để tránh phát âm liên tục
+            if (player.x <= borderThreshold || player.x >= width - playerBitmap.width - borderThreshold ||
+                player.y <= borderThreshold) { // Removed bottom border check
+                soundPool.play(borderSoundId, 0.8f, 0.8f, 1, 0, 1f)
+            }
+
+            // Giới hạn player trong màn hình
+            player.x = player.x.coerceIn(0, width - playerBitmap.width)
+            player.y = player.y.coerceIn(0, height - playerBitmap.height)
+
+            // Kiểm tra cảnh báo khi máy bay vượt qua 1/2 màn hình
+            val halfScreenY = height / 2
+            val playerCenterY = player.y + playerBitmap.height / 2
+
+            // Quản lý cooldown cho warning
+            if (warningCooldown > 0) {
+                warningCooldown--
+            }
+
+            // Kiểm tra nếu máy bay vượt qua 1/2 màn hình và chưa phát warning gần đây
+            if (playerCenterY <= halfScreenY && !hasPlayedWarning && warningCooldown <= 0) {
+                soundPool.play(warningSoundId, 0.7f, 0.7f, 1, 0, 1f)
+                hasPlayedWarning = true
+                warningCooldown = warningCooldownDuration
+            }
+
+            // Reset warning flag khi máy bay trở lại nửa dưới màn hình
+            if (playerCenterY > halfScreenY) {
+                hasPlayedWarning = false
+            }
         }
 
         override fun draw(canvas: Canvas) {
@@ -609,7 +680,7 @@
 
             if (isGameOver) return false
 
-            // Chỉ xử lý di chuyển máy bay khi không nhấn vào nút pause và không nhấn vào nút tên lửa
+            // Xử lý di chuyển 4 hướng mượt mà khi không nhấn vào các nút đặc biệt
             if ((event.action == MotionEvent.ACTION_DOWN || event.action == MotionEvent.ACTION_MOVE)
                 && (pauseButtonRect == null || !pauseButtonRect!!.contains(
                     event.x.toInt(),
@@ -620,9 +691,25 @@
                     event.y.toInt()
                 ))
             ) {
-                val newX = event.x.toInt() - playerBitmap.width / 2
-                player.x = newX.coerceIn(0, width - playerBitmap.width)
+                // Thiết lập vị trí đích cho di chuyển mượt mà theo cả X và Y
+                val newTargetX = (event.x - playerBitmap.width / 2).coerceIn(0f, (width - playerBitmap.width).toFloat())
+                val newTargetY = (event.y - playerBitmap.height / 2).coerceIn(0f, (height - playerBitmap.height).toFloat())
+
+                // Chỉ cập nhật target nếu có sự thay đổi đáng kể để tránh rung
+                val threshold = 10f
+                if (Math.abs(newTargetX - targetX) > threshold || Math.abs(newTargetY - targetY) > threshold) {
+                    targetX = newTargetX
+                    targetY = newTargetY
+                    isMoving = true
+                }
+                return true
             }
+
+            // Dừng di chuyển khi thả tay
+            if (event.action == MotionEvent.ACTION_UP) {
+                isMoving = false
+            }
+
             return true
         }
 
