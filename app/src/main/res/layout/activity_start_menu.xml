@@ -11,7 +11,6 @@
         android:scaleType="centerCrop"
         android:src="@drawable/menu_bg_v3" />
 
-
     <!-- Nội dung chính -->
     <ScrollView
         android:layout_width="match_parent"
@@ -138,9 +137,8 @@
                     android:layout_marginEnd="20dp"
                     android:src="@drawable/background"
                     android:scaleType="fitCenter"
-                    android:background="@android:color/holo_blue_light"
-                    android:padding="3dp"/>
-                <!-- Viền xanh sẽ hiện rõ -->
+                    android:padding="3dp"
+                    android:background="@android:color/transparent"/>
 
                 <ImageView
                     android:id="@+id/bg2Img"
@@ -148,9 +146,8 @@
                     android:layout_height="84dp"
                     android:src="@drawable/background2"
                     android:scaleType="fitCenter"
-                    android:background="@android:color/holo_blue_light"
-                    android:padding="3dp"/>
-                <!-- Viền xanh sẽ hiện rõ -->
+                    android:padding="3dp"
+                    android:background="@android:color/transparent"/>
             </LinearLayout>
 
             <!-- Chọn Máy bay -->
@@ -224,7 +221,7 @@
         </LinearLayout>
     </ScrollView>
 
-    <!-- NÚT GIỎ HÀNG ĐƯA XUỐNG DƯỚI CÙNG ĐỂ ĐƯỢC ƯU TIÊN CLICK -->
+    <!-- NÚT GIỎ HÀNG -->
     <ImageButton
         android:id="@+id/btnCart"
         android:layout_width="54dp"
