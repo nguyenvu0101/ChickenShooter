@@ -285,25 +285,26 @@ class Level1(
         swarms.forEach { it.chickens.forEach { ch -> ch.projectiles.removeAll(hitProjectiles) } }
 
         // Bullet - Chicken Projectiles collision (optional: bullets có thể phá được projectiles)
-        val destroyedProjectiles = mutableListOf<ChickenProjectile>()
-        val usedBulletsForProjectiles = mutableListOf<Bullet>()
-
-        chickens.forEach { chicken ->
-            chicken.projectiles.forEach { projectile ->
-                bullets.forEach { bullet ->
-                    if (CollisionUtils.isColliding(projectile.getRect(), bullet.getRect())) {
-                        destroyedProjectiles.add(projectile)
-                        usedBulletsForProjectiles.add(bullet)
-                    }
-                }
-            }
-        }
-
-        // Remove destroyed projectiles and used bullets
-        chickens.forEach { chicken ->
-            chicken.projectiles.removeAll(destroyedProjectiles)
-        }
-        bullets.removeAll(usedBulletsForProjectiles)
+        // Đạn của player và của gà va chạm vào nhau
+//        val destroyedProjectiles = mutableListOf<ChickenProjectile>()
+//        val usedBulletsForProjectiles = mutableListOf<Bullet>()
+//
+//        chickens.forEach { chicken ->
+//            chicken.projectiles.forEach { projectile ->
+//                bullets.forEach { bullet ->
+//                    if (CollisionUtils.isColliding(projectile.getRect(), bullet.getRect())) {
+//                        destroyedProjectiles.add(projectile)
+//                        usedBulletsForProjectiles.add(bullet)
+//                    }
+//                }
+//            }
+//        }
+//
+//        // Remove destroyed projectiles and used bullets
+//        chickens.forEach { chicken ->
+//            chicken.projectiles.removeAll(destroyedProjectiles)
+//        }
+//        bullets.removeAll(usedBulletsForProjectiles)
 
         // Player - Item collection
         val collectedItems = items.filter { CollisionUtils.isColliding(it.getRect(), player.getRect()) }

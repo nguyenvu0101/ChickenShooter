@@ -63,7 +63,9 @@ class BossChicken(
                     y + bitmap.height,
                     eggBitmap,
                     speed = 15f,
-                    angleDegree = angle
+                    angleDegree = angle,
+                    screenHeight = this.screenHeight,
+                    screenWidth = this.screenWidth
                 )
             )
         }
