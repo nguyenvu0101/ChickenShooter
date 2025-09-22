@@ -7,6 +7,7 @@ package com.example.chickenshooter
     import android.graphics.Paint
     import android.graphics.Color
     import android.graphics.Rect
+    import android.graphics.RectF
     import android.graphics.Path
     import android.view.MotionEvent
     import android.view.SurfaceHolder
@@ -15,7 +16,7 @@ package com.example.chickenshooter
     import com.example.chickenshooter.levels.*
     import com.google.firebase.auth.ktx.auth
     import com.google.firebase.ktx.Firebase
-
+    import android.media.MediaPlayer
     // CHế độ bắn súng
     enum class GunMode {
         NORMAL, FAST, TRIPLE_PARALLEL, TRIPLE_SPREAD
@@ -46,7 +47,7 @@ package com.example.chickenshooter
             (playerBitmap.height * 0.6).toInt(),
             true
         )
-
+        private var mediaPlayer: MediaPlayer? = null
         // obj tên lửa bắn từ máy bay
         private val missileBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.rocket1)
 
@@ -72,7 +73,7 @@ package com.example.chickenshooter
         // Movement variables for 4-directional smooth movement
         private var targetX = 0f
         private var targetY = 0f
-        private val movementSpeed = 12f // Increased from 8f to 12f for faster movement
+        private val movementSpeed = 45f // Increased from 8f to 12f for faster movement
         private var isMoving = false
 
         // Sound effect variables
@@ -84,6 +85,34 @@ package com.example.chickenshooter
         private var missileSoundId: Int = 0
         private var warningSoundId: Int = 0
 
+        // Thêm biến trạng thái
+        private var showPauseMenu = false
+        private var isMusicOn = true
+        private var isSoundOn = true
+
+        // Rect cho các nút trong menu pause
+        private var pauseExitButtonRect: Rect? = null
+        private var pauseMusicButtonRect: Rect? = null
+        private var pauseSoundButtonRect: Rect? = null
+
+        private val levelMusicResIds = listOf(
+            R.raw.music_level1,
+            R.raw.music_level2,
+            R.raw.music_level3,
+            R.raw.music_level4
+        )
+        // Bitmap cho các icon bật/tắt nhạc nền và âm thanh
+        private val musicOnBitmap = BitmapFactory.decodeResource(resources, R.drawable.music_turnon)
+        private val musicOffBitmap = BitmapFactory.decodeResource(resources, R.drawable.music_turnoff)
+        private val soundOnBitmap = BitmapFactory.decodeResource(resources, R.drawable.sound_on)
+        private val soundOffBitmap = BitmapFactory.decodeResource(resources, R.drawable.sound_off)
+        // Kích thước icon (ví dụ 48 hoặc 64 tùy nút)
+        private val pauseIconSize = 64
+
+        private val musicOnBitmapScaled = Bitmap.createScaledBitmap(musicOnBitmap, pauseIconSize, pauseIconSize, true)
+        private val musicOffBitmapScaled = Bitmap.createScaledBitmap(musicOffBitmap, pauseIconSize, pauseIconSize, true)
+        private val soundOnBitmapScaled = Bitmap.createScaledBitmap(soundOnBitmap, pauseIconSize, pauseIconSize, true)
+        private val soundOffBitmapScaled = Bitmap.createScaledBitmap(soundOffBitmap, pauseIconSize, pauseIconSize, true)
         // Warning system for halfway screen crossing
         private var hasPlayedWarning = false
         private var warningCooldown = 0
@@ -204,6 +233,19 @@ package com.example.chickenshooter
 
         fun startLevel(newLevel: Int) {
             level = newLevel
+
+            // 1. Giải phóng nhạc nền cũ nếu có (tránh trùng tiếng, tránh leak RAM)
+            mediaPlayer?.release()
+            mediaPlayer = null
+
+            // 2. Gán nhạc nền cho từng màn, chỉ play khi isMusicOn = true
+            if (level in 1..levelMusicResIds.size) {
+                mediaPlayer = MediaPlayer.create(context, levelMusicResIds[level - 1])
+                mediaPlayer?.isLooping = true
+                if (isMusicOn) mediaPlayer?.start()
+            }
+
+            // 3. Khởi tạo màn chơi theo level như cũ
             currentLevel = when (level) {
                 1 -> Level1(context, player, bulletBitmap, itemBitmaps, coinBitmap, backgroundId)
                 2 -> Level2(context, player, bulletBitmap, itemBitmaps, coinBitmap, backgroundId)
@@ -211,12 +253,11 @@ package com.example.chickenshooter
                 4 -> Level4(context, player, bulletBitmap, itemBitmaps, coinBitmap, backgroundId)
                 else -> Level1(context, player, bulletBitmap, itemBitmaps, coinBitmap, backgroundId)
             }
-
             currentLevel.setScreenSize(width, height)
 
+            // 4. Xử lý cộng xu khi nhặt coin
             currentLevel.onCoinCollected = { amount: Int ->
                 localCoin += amount
-                // Lưu xu ngay khi nhặt được
                 if (isOfflineMode()) {
                     val prefs = context.getSharedPreferences("game", Context.MODE_PRIVATE)
                     prefs.edit().putLong("coins", localCoin.toLong()).apply()
@@ -226,6 +267,8 @@ package com.example.chickenshooter
                     }
                 }
             }
+
+            // 5. Reset các biến hỗ trợ level
             currentLevel.reset()
             bullets.clear()
             gunMode = GunMode.NORMAL
@@ -324,21 +367,22 @@ package com.example.chickenshooter
                 when (gunMode) {
                     GunMode.NORMAL, GunMode.FAST -> {
                         bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 90.0))
-                        soundPool.play(gunshotSoundId, 1f, 1f, 1, 0, 1f)
+                        if (isSoundOn) soundPool.play(gunshotSoundId, 1f, 1f, 1, 0, 1f)
                     }
 
                     GunMode.TRIPLE_PARALLEL -> {
                         bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 90.0))
                         bullets.add(Bullet(center - offset, bulletY, bulletBitmap, 30, 2, 90.0))
                         bullets.add(Bullet(center + offset, bulletY, bulletBitmap, 30, 2, 90.0))
-                        soundPool.play(gunshotSoundId, 1f, 1f, 1, 0, 1f)
+
+                        if (isSoundOn) soundPool.play(gunshotSoundId, 1f, 1f, 1, 0, 1f)
                     }
 
                     GunMode.TRIPLE_SPREAD -> {
                         bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 90.0))
                         bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 110.0))
                         bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 70.0))
-                        soundPool.play(gunshotSoundId, 1f, 1f, 1, 0, 1f)
+                        if (isSoundOn) soundPool.play(gunshotSoundId, 1f, 1f, 1, 0, 1f)
                     }
                 }
                 autoShootCounter = 0
@@ -427,7 +471,7 @@ package com.example.chickenshooter
             val borderThreshold = 5f // ngưỡng để tránh phát âm liên tục
             if (player.x <= borderThreshold || player.x >= width - playerBitmap.width - borderThreshold ||
                 player.y <= borderThreshold) { // Removed bottom border check
-                soundPool.play(borderSoundId, 0.8f, 0.8f, 1, 0, 1f)
+                if (isSoundOn) soundPool.play(gunshotSoundId, 1f, 1f, 1, 0, 1f)
             }
 
             // Giới hạn player trong màn hình
@@ -445,7 +489,7 @@ package com.example.chickenshooter
 
             // Kiểm tra nếu máy bay vượt qua 1/2 màn hình và chưa phát warning gần đây
             if (playerCenterY <= halfScreenY && !hasPlayedWarning && warningCooldown <= 0) {
-                soundPool.play(warningSoundId, 0.7f, 0.7f, 1, 0, 1f)
+                if (isSoundOn) soundPool.play(warningSoundId, 0.7f, 0.7f, 1, 0, 1f)
                 hasPlayedWarning = true
                 warningCooldown = warningCooldownDuration
             }
@@ -478,8 +522,8 @@ package com.example.chickenshooter
 
             // Vẽ nút pause/play bên trái chữ xu
             val pauseBtnSize = 48f
-            val pauseBtnX = coinTextX - pauseBtnSize - 170f // Di chuyển nút sang trái xa hơn chữ xu
-            val pauseBtnY = coinTextY - pauseBtnSize + 8f  // Di chuyển nút lên trên một chút
+            val pauseBtnX = coinTextX - pauseBtnSize - 170f
+            val pauseBtnY = coinTextY - pauseBtnSize + 8f
             pauseButtonRect = Rect(
                 pauseBtnX.toInt(),
                 pauseBtnY.toInt(),
@@ -492,16 +536,16 @@ package com.example.chickenshooter
             val centerX = pauseBtnX + pauseBtnSize / 2
             val centerY = pauseBtnY + pauseBtnSize / 2
 
+            // Vẽ nút tên lửa/missile
             val btnX = width - missileButtonBitmapScaled.width - 40
             val btnY = height - missileButtonBitmapScaled.height - 40
-
             canvas.drawBitmap(missileButtonBitmapScaled, btnX.toFloat(), btnY.toFloat(), null)
-            // Thông số vòng tròn mana
+
+            // Thông số vòng tròn mana cho tên lửa
             val cx = btnX + missileButtonBitmapScaled.width / 2f
             val cy = btnY + missileButtonBitmapScaled.height / 2f
             val radius = missileButtonBitmapScaled.width / 2f + 16f
             val manaStrokeWidth = 14f
-
             val sweep = 360f / manaNeeded
 
             val paintFilled = Paint().apply {
@@ -517,7 +561,7 @@ package com.example.chickenshooter
                 isAntiAlias = true
             }
 
-    // Vẽ các cung đã nhặt được mana
+            // Vẽ các cung đã nhặt được mana
             for (i in 0 until currentMana.coerceAtMost(manaNeeded)) {
                 val startAngle = -90f + i * sweep
                 canvas.drawArc(
@@ -526,8 +570,7 @@ package com.example.chickenshooter
                     false, paintFilled
                 )
             }
-
-    // Vẽ các cung chưa nhặt
+            // Vẽ các cung chưa nhặt
             for (i in currentMana until manaNeeded) {
                 val startAngle = -90f + i * sweep
                 canvas.drawArc(
@@ -540,9 +583,9 @@ package com.example.chickenshooter
                 btnX, btnY,
                 btnX + missileButtonBitmapScaled.width,
                 btnY + missileButtonBitmapScaled.height
-
             )
 
+            // Vẽ nút pause/play
             if (!isPaused) {
                 // Đang chơi: vẽ icon PAUSE
                 val barW = 8f
@@ -559,7 +602,7 @@ package com.example.chickenshooter
                     paint
                 )
             } else {
-                // Đang PAUSE: vẽ tam giác ngang
+                // Đang PAUSE: vẽ tam giác ngang (icon play)
                 val triangleSize = pauseBtnSize * 0.6f
                 val path = Path()
                 path.moveTo(centerX - triangleSize / 2, centerY - triangleSize / 2)
@@ -569,9 +612,70 @@ package com.example.chickenshooter
                 canvas.drawPath(path, paint)
             }
 
+            // MENU PAUSE
+            if (showPauseMenu) {
+                val menuWidth = width * 2 / 3
+                val menuHeight = 500
+                val left = (width - menuWidth) / 2
+                val top = (height - menuHeight) / 2
+
+                // Nền menu
+                paint.color = Color.argb(220, 30, 30, 30)
+                canvas.drawRoundRect(left.toFloat(), top.toFloat(), (left+menuWidth).toFloat(), (top+menuHeight).toFloat(), 40f, 40f, paint)
+
+                // Vẽ nút EXIT
+                val btnW = menuWidth - 80
+                val btnH = 110
+                val btnX = left + 40
+                var btnY = top + 40
+                pauseExitButtonRect = Rect(btnX, btnY, btnX+btnW, btnY+btnH)
+                paint.color = Color.parseColor("#F44336")
+                canvas.drawRoundRect(RectF(pauseExitButtonRect), 26f,26f, paint)
+                paint.color = Color.WHITE
+                paint.textSize = 52f
+                paint.textAlign = Paint.Align.CENTER
+                canvas.drawText("Thoát game", (btnX+btnW/2).toFloat(), (btnY+btnH/2)+18f, paint)
+
+                // Nút bật/tắt nhạc nền
+                btnY += btnH + 25
+                pauseMusicButtonRect = Rect(btnX, btnY, btnX+btnW, btnY+btnH)
+                paint.color = Color.parseColor("#009688")
+                canvas.drawRoundRect(RectF(pauseMusicButtonRect), 26f,26f, paint)
+                val musicIcon = if (isMusicOn) musicOnBitmapScaled else musicOffBitmapScaled
+                val musicX = btnX + 24f
+                val musicY = btnY + (btnH - pauseIconSize) / 2f
+                canvas.drawBitmap(musicIcon, musicX, musicY, null)
+                paint.color = Color.WHITE
+                paint.textAlign = Paint.Align.LEFT
+                canvas.drawText(
+                    if (isMusicOn) "Tắt nhạc nền" else "Bật nhạc nền",
+                    (btnX+120).toFloat(), (btnY+btnH/2)+18f, paint
+                )
+
+                // Nút bật/tắt hiệu ứng âm thanh
+                btnY += btnH + 25
+                pauseSoundButtonRect = Rect(btnX, btnY, btnX+btnW, btnY+btnH)
+                paint.color = Color.parseColor("#3F51B5")
+                canvas.drawRoundRect(RectF(pauseSoundButtonRect), 26f,26f, paint)
+                val soundIcon = if (isSoundOn) soundOnBitmapScaled else soundOffBitmapScaled
+                val soundX = btnX + 24f
+                val soundY = btnY + (btnH - pauseIconSize) / 2f
+                canvas.drawBitmap(soundIcon, soundX, soundY, null)
+                paint.color = Color.WHITE
+                paint.textAlign = Paint.Align.LEFT
+                canvas.drawText(
+                    if (isSoundOn) "Tắt hiệu ứng" else "Bật hiệu ứng",
+                    (btnX+120).toFloat(), (btnY+btnH/2)+18f, paint
+                )
+                paint.textAlign = Paint.Align.LEFT
+                return
+            }
+
+            // Vẽ tên lửa nếu có
             missile?.draw(canvas, missileExplosionBitmap)
             paint.textAlign = Paint.Align.LEFT
 
+            // Vẽ hiệu ứng chuyển màn, game over, menu game over
             if (isLevelChanging) {
                 paint.textSize = 80f
                 paint.color = Color.YELLOW
@@ -598,7 +702,6 @@ package com.example.chickenshooter
                 val retryY = height / 2 + 20
                 val menuY = retryY + btnHeight + btnSpacing
 
-
                 retryButtonRect = Rect(
                     centerXBtn - btnWidth / 2,
                     retryY,
@@ -624,11 +727,43 @@ package com.example.chickenshooter
 
         override fun onTouchEvent(event: MotionEvent): Boolean {
             // Xử lý bấm nút Pause/Play
+            // Nếu đang show menu pause, chỉ xử lý các nút này
+            if (showPauseMenu) {
+                if (event.action == MotionEvent.ACTION_DOWN) {
+                    val x = event.x.toInt()
+                    val y = event.y.toInt()
+                    if (pauseExitButtonRect?.contains(x, y) == true) {
+                        endGameAndReturnToMenu()
+                        return true
+                    }
+                    if (pauseMusicButtonRect?.contains(x, y) == true) {
+                        isMusicOn = !isMusicOn
+                        if (isMusicOn) mediaPlayer?.start() else mediaPlayer?.pause()
+                        return true
+                    }
+                    if (pauseSoundButtonRect?.contains(x, y) == true) {
+                        isSoundOn = !isSoundOn
+                        return true
+                    }
+                    // *** Sửa tại đây: kiểm tra pauseButtonRect ***
+                    if (pauseButtonRect != null && pauseButtonRect!!.contains(x, y)) {
+                        isPaused = false
+                        showPauseMenu = false
+                        if (isMusicOn) mediaPlayer?.start()
+                        return true
+                    }
+                }
+                return true
+            }
+
+            // Xử lý nút pause như cũ, nhưng mở menu thay vì chỉ toggle play/pause
             if (pauseButtonRect != null && event.action == MotionEvent.ACTION_DOWN) {
                 val x = event.x.toInt()
                 val y = event.y.toInt()
                 if (pauseButtonRect!!.contains(x, y)) {
                     isPaused = !isPaused
+                    showPauseMenu = isPaused
+                    if (isPaused) mediaPlayer?.pause() else if (isMusicOn) mediaPlayer?.start()
                     return true
                 }
             }
@@ -641,7 +776,7 @@ package com.example.chickenshooter
                         currentLevel.consumeManaForMissile()
                         val targetX = (width - missileBitmap.width) / 2
                         val targetY = (height - missileBitmap.height) / 2
-                        soundPool.play(missileSoundId, 1f, 1f, 1, 0, 1f)
+                        if (isSoundOn)  soundPool.play(missileSoundId, 1f, 1f, 1, 0, 1f)
                         missile = Missile(
                             player.x,
                             player.y,
