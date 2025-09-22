@@ -11,12 +11,6 @@
         android:scaleType="centerCrop"
         android:src="@drawable/menu_bg_v3" />
 
-    <!-- Overlay gradient -->
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@drawable/overlay_gradient" />
-
     <!-- Nội dung chính -->
     <ScrollView
         android:layout_width="match_parent"
@@ -28,7 +22,10 @@
             android:layout_height="wrap_content"
             android:gravity="center_horizontal"
             android:orientation="vertical"
-            android:padding="24dp">
+            android:padding="28dp"
+            android:layout_margin="20dp"
+            android:elevation="8dp"
+            android:clipToPadding="false">
 
             <!-- Thông tin chế độ / tên / xu -->
             <TextView
@@ -37,8 +34,13 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
                 android:text="Chế độ: OFFLINE"
-                android:textColor="@android:color/white"
-                android:textSize="18sp" />
+                android:textColor="#FFD700"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:shadowColor="#FF5722"
+                android:shadowDx="1"
+                android:shadowDy="1"
+                android:shadowRadius="2"/>
 
             <TextView
                 android:id="@+id/tvPlayerName"
@@ -47,95 +49,130 @@
                 android:layout_marginBottom="4dp"
                 android:text="Tên: Player"
                 android:textColor="@android:color/white"
-                android:textSize="18sp" />
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:shadowColor="#FF5722"
+                android:shadowDx="0.5"
+                android:shadowDy="0.5"
+                android:shadowRadius="1"/>
 
             <TextView
                 android:id="@+id/tvCoins"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="18dp"
                 android:text="Xu: 0"
-                android:textColor="@android:color/white"
-                android:textSize="18sp" />
+                android:textColor="#FFEB3B"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:shadowColor="#FF9800"
+                android:shadowDx="1"
+                android:shadowDy="1"
+                android:shadowRadius="1"/>
 
             <!-- Nhập tên -->
             <EditText
                 android:id="@+id/etName"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
+                android:layout_marginBottom="12dp"
                 android:background="@android:color/white"
                 android:hint="Nhập tên người chơi"
-                android:padding="8dp" />
+                android:textColor="#222"
+                android:textSize="16sp"
+                android:padding="10dp"
+                android:elevation="2dp"
+                android:drawableLeft="@android:drawable/ic_menu_edit"/>
 
             <Button
                 android:id="@+id/btnSaveName"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="10dp"
                 android:backgroundTint="#4CAF50"
                 android:text="Lưu tên"
-                android:textColor="@android:color/white" />
+                android:textColor="@android:color/white"
+                android:textStyle="bold"
+                android:textAllCaps="false"
+                android:elevation="2dp"/>
 
             <!-- Nút Login -->
             <Button
                 android:id="@+id/loginBtn"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="24dp"
+                android:layout_marginBottom="18dp"
                 android:backgroundTint="#2196F3"
                 android:text="Đăng nhập Online"
-                android:textColor="@android:color/white" />
+                android:textColor="@android:color/white"
+                android:textStyle="bold"
+                android:textAllCaps="false"
+                android:elevation="2dp"/>
 
             <!-- Chọn Background -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
+                android:layout_marginBottom="8dp"
                 android:text="Chọn Background"
-                android:textColor="@android:color/white"
+                android:textColor="#FFEB3B"
                 android:textSize="20sp"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                android:shadowColor="#000"
+                android:shadowDx="0"
+                android:shadowDy="1"
+                android:shadowRadius="2"/>
 
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="24dp"
                 android:gravity="center"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:layout_marginBottom="18dp">
 
                 <ImageView
                     android:id="@+id/bg1Img"
-                    android:layout_width="56dp"
-                    android:layout_height="80dp"
-                    android:layout_marginEnd="16dp"
-                    android:src="@drawable/background" />
+                    android:layout_width="60dp"
+                    android:layout_height="84dp"
+                    android:layout_marginEnd="20dp"
+                    android:src="@drawable/background"
+                    android:scaleType="fitCenter"
+                    android:padding="3dp"
+                    android:background="@android:color/transparent"/>
 
                 <ImageView
                     android:id="@+id/bg2Img"
-                    android:layout_width="49dp"
-                    android:layout_height="80dp"
-                    android:src="@drawable/background2" />
+                    android:layout_width="53dp"
+                    android:layout_height="84dp"
+                    android:src="@drawable/background2"
+                    android:scaleType="fitCenter"
+                    android:padding="3dp"
+                    android:background="@android:color/transparent"/>
             </LinearLayout>
 
             <!-- Chọn Máy bay -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
+                android:layout_marginBottom="8dp"
                 android:text="Chọn Máy bay"
-                android:textColor="@android:color/white"
+                android:textColor="#FFEB3B"
                 android:textSize="20sp"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                android:shadowColor="#000"
+                android:shadowDx="0"
+                android:shadowDy="1"
+                android:shadowRadius="2"/>
 
             <!-- Máy bay đang chọn, mặc định ẨN -->
             <ImageView
                 android:id="@+id/planePreviewImg"
-                android:layout_width="90dp"
-                android:layout_height="90dp"
+                android:layout_width="96dp"
+                android:layout_height="96dp"
                 android:layout_gravity="center"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="10dp"
                 android:src="@drawable/player"
+                android:scaleType="centerInside"
                 android:visibility="gone" />
 
             <!-- 2 máy bay nhỏ để chọn -->
@@ -143,50 +180,57 @@
                 android:id="@+id/planeSelectLayout"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="24dp"
+                android:layout_marginBottom="15dp"
                 android:gravity="center"
                 android:orientation="horizontal">
 
                 <ImageView
                     android:id="@+id/plane1Img"
-                    android:layout_width="90dp"
-                    android:layout_height="90dp"
-                    android:layout_marginEnd="16dp"
-                    android:src="@drawable/player" />
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
+                    android:layout_marginEnd="20dp"
+                    android:src="@drawable/player"
+                    android:scaleType="centerInside"
+                    android:background="?android:attr/selectableItemBackground"
+                    android:padding="4dp"/>
 
                 <ImageView
                     android:id="@+id/plane2Img"
-                    android:layout_width="90dp"
-                    android:layout_height="90dp"
-                    android:src="@drawable/player2_v2" />
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
+                    android:src="@drawable/player2_v2"
+                    android:scaleType="centerInside"
+                    android:background="?android:attr/selectableItemBackground"
+                    android:padding="4dp"/>
             </LinearLayout>
 
             <!-- Nút bắt đầu -->
             <Button
                 android:id="@+id/startBtn"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="32dp"
+                android:layout_marginBottom="22dp"
                 android:backgroundTint="#FF5722"
-                android:paddingLeft="32dp"
-                android:paddingRight="32dp"
                 android:text="Bắt đầu"
                 android:textColor="@android:color/white"
-                android:textSize="18sp"
-                android:textStyle="bold" />
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textAllCaps="false"
+                android:elevation="4dp"/>
 
         </LinearLayout>
     </ScrollView>
 
-    <!-- NÚT GIỎ HÀNG ĐƯA XUỐNG DƯỚI CÙNG ĐỂ ĐƯỢC ƯU TIÊN CLICK -->
+    <!-- NÚT GIỎ HÀNG -->
     <ImageButton
         android:id="@+id/btnCart"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
+        android:layout_width="54dp"
+        android:layout_height="54dp"
         android:src="@drawable/cart"
         android:scaleType="centerInside"
-        android:background="@android:color/transparent"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
         android:layout_gravity="end|top"
-        android:layout_margin="16dp" />
+        android:layout_margin="18dp"
+        android:elevation="10dp" />
 
 </FrameLayout>

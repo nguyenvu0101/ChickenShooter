@@ -11,9 +11,10 @@ class Egg(
     y: Int,
     bitmap: Bitmap,
     private val speed: Float = 15f,
-    private val angleDegree: Float = 90f // 90 độ là rơi thẳng xuống
+    private val angleDegree: Float = 90f, // 90 độ là rơi thẳng xuống
+    private val screenHeight: Int,
+    private val screenWidth: Int
 ) : GameObject(x, y, bitmap) {
-    var isOutOfScreen = false
 
     // Chuyển đổi sang radian để dùng sin/cos
     private val angleRad = angleDegree * (PI / 180f)
@@ -23,9 +24,8 @@ class Egg(
     override fun update() {
         x += dx.toInt()
         y += dy.toInt()
-        // Nếu ra ngoài màn hình
-        if (y > 1920 || x < -bitmap.width || x > 1080 + bitmap.width) {
-            isOutOfScreen = true
-        }
     }
+
+    val isOutOfScreen: Boolean
+        get() = y > screenHeight || x < -bitmap.width || x > screenWidth + bitmap.width
 }
