@@ -445,6 +445,8 @@ class Level1(
         // coins do BaseLevel quản lý, BaseLevel.reset() của bạn không xóa -> không sao,
         // nếu muốn sạch tuyệt đối có thể thêm hàm clearCoins() trong BaseLevel.
         eggs.clear()
+        coins.clear()
+        shields.clear()
         boss = null
         isBossSpawned = false
         lives = 3

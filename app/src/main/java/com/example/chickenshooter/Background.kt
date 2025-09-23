@@ -12,7 +12,8 @@ class Background(
 ) {
     private var bgY1 = 0
     private var bgY2 = -screenH
-    private var scaledBitmap: Bitmap = Bitmap.createScaledBitmap(bitmap, screenW, screenH, true)
+    // Scale bitmap lớn hơn 1px để tránh line
+    private var scaledBitmap: Bitmap = Bitmap.createScaledBitmap(bitmap, screenW, screenH + 1, true)
 
     fun update() {
         bgY1 += speed

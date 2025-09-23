@@ -254,7 +254,12 @@ package com.example.chickenshooter
                 else -> Level1(context, player, bulletBitmap, itemBitmaps, coinBitmap, backgroundId)
             }
             currentLevel.setScreenSize(width, height)
-
+// Đặt lại vị trí player
+            player.x = width / 2 - playerBitmap.width / 2
+            player.y = height - playerBitmap.height - 30
+            targetX = player.x.toFloat()
+            targetY = player.y.toFloat()
+            isMoving = false
             // 4. Xử lý cộng xu khi nhặt coin
             currentLevel.onCoinCollected = { amount: Int ->
                 localCoin += amount
@@ -304,6 +309,8 @@ package com.example.chickenshooter
                 val prefs = context.getSharedPreferences("game", Context.MODE_PRIVATE)
                 prefs.edit().putLong("coins", localCoin.toLong()).apply()
             }
+            mediaPlayer?.release()
+            mediaPlayer = null
             thread.running = false
             post {
                 val activity = context as? android.app.Activity
@@ -798,11 +805,12 @@ package com.example.chickenshooter
                     if (retryButtonRect?.contains(x, y) == true) {
                         showGameOverMenu = false
                         isGameOver = false
-                        currentLevel.reset()
-                        bullets.clear()
-                        gunMode = GunMode.NORMAL
-                        gunModeTimer = 0
-                        autoShootCounter = 0
+                        isLevelChanging = false
+                        levelChangeCounter = 0
+                        gameOverCounter = 0
+
+                        startLevel(level)
+
                         return true
                     }
                     if (menuButtonRect?.contains(x, y) == true) {
