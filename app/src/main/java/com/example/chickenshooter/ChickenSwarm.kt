@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import kotlin.math.abs
 import kotlin.math.sin
 import kotlin.random.Random
+import java.util.Collections
 
 enum class SwarmPattern {
     HORIZONTAL, SIN_WAVE, CHICKEN_INVADERS
@@ -21,7 +22,8 @@ class ChickenSwarm(
     private val screenHeight: Int,
     private val swarmSpeed: Float = 4f
 ) {
-    val chickens: MutableList<Chicken> = mutableListOf()
+    // Use synchronized collections to prevent ConcurrentModificationException
+    val chickens: MutableList<Chicken> = Collections.synchronizedList(mutableListOf())
     private var dir = 1
     private var tick = 0
 
@@ -29,8 +31,8 @@ class ChickenSwarm(
     private var previousPattern: SwarmPattern? = null
     private var phase = SwarmPhase.START
 
-    private val leftChickens = mutableListOf<Chicken>()
-    private val rightChickens = mutableListOf<Chicken>()
+    private val leftChickens = Collections.synchronizedList(mutableListOf<Chicken>())
+    private val rightChickens = Collections.synchronizedList(mutableListOf<Chicken>())
 
     // Tuning params
     private val edgeMargin = 12f
@@ -117,17 +119,23 @@ class ChickenSwarm(
             SwarmPattern.CHICKEN_INVADERS -> moveChickenInvaders()
         }
 
-        chickens.forEach { it.update(playerX, playerY) }
+        // Use synchronized iteration to prevent ConcurrentModificationException
+        synchronized(chickens) {
+            chickens.forEach { it.update(playerX, playerY) }
+        }
     }
 
     private fun moveAfterChickenInvaders() {
-        for (chicken in chickens) chicken.x += swarmSpeed * dir
-        val hitLeft = chickens.minOf { it.x } <= 0f
-        val hitRight = chickens.maxOf { it.x + chickenBitmap.width } >= screenWidth.toFloat()
-        if (hitLeft || hitRight) {
-            dir *= -1
-            val drop = chickenBitmap.height / 2f
-            chickens.forEach { it.y += drop }
+        // Use synchronized access for thread safety
+        synchronized(chickens) {
+            for (chicken in chickens) chicken.x += swarmSpeed * dir
+            val hitLeft = chickens.minOf { it.x } <= 0f
+            val hitRight = chickens.maxOf { it.x + chickenBitmap.width } >= screenWidth.toFloat()
+            if (hitLeft || hitRight) {
+                dir *= -1
+                val drop = chickenBitmap.height / 2f
+                chickens.forEach { it.y += drop }
+            }
         }
     }
 
@@ -135,24 +143,26 @@ class ChickenSwarm(
         // tăng tốc ngang để biên độ rộng hơn
         val horizontalSpeed = swarmSpeed * 1.5f
 
-        for (chicken in chickens) {
-            chicken.x += horizontalSpeed * dir
-        }
+        synchronized(chickens) {
+            for (chicken in chickens) {
+                chicken.x += horizontalSpeed * dir
+            }
 
-        val hitLeft = chickens.minOf { it.x } <= 0f
-        val hitRight = chickens.maxOf { it.x + chickenBitmap.width } >= screenWidth.toFloat()
+            val hitLeft = chickens.minOf { it.x } <= 0f
+            val hitRight = chickens.maxOf { it.x + chickenBitmap.width } >= screenWidth.toFloat()
 
-        if (hitLeft || hitRight) {
-            dir *= -1
-            // tụt xuống ít hơn để chậm rãi hơn
-            val drop = chickenBitmap.height / 4f   // nhỏ hơn 1/2 chiều cao
-            chickens.forEach { it.y += drop }
+            if (hitLeft || hitRight) {
+                dir *= -1
+                // tụt xuống ít hơn để chậm rãi hơn
+                val drop = chickenBitmap.height / 4f   // nhỏ hơn 1/2 chiều cao
+                chickens.forEach { it.y += drop }
+            }
         }
     }
 
     // 2 đàn riêng
-    private val leftWave = mutableListOf<Chicken>()
-    private val rightWave = mutableListOf<Chicken>()
+    private val leftWave = Collections.synchronizedList(mutableListOf<Chicken>())
+    private val rightWave = Collections.synchronizedList(mutableListOf<Chicken>())
 
     private fun prepareDoubleSinWave() {
         chickens.clear()
@@ -211,25 +221,31 @@ class ChickenSwarm(
         val centerLeftX = screenWidth * 0.25f
         val centerRightX = screenWidth * 0.75f
 
-        for ((index, chicken) in leftWave.withIndex()) {
-            chicken.y += fallSpeedPxPerSec * dtSec
-            val phase = waveAngularSpeed * totalTimeSec + index * indexPhaseOffset
-            // dao động từ 0 đến 1 màn hình
-            chicken.x = (screenWidth / 2f) * (1 + sin(phase).toFloat())
+        // Use synchronized access for thread safety
+        synchronized(leftWave) {
+            for ((index, chicken) in leftWave.withIndex()) {
+                chicken.y += fallSpeedPxPerSec * dtSec
+                val phase = waveAngularSpeed * totalTimeSec + index * indexPhaseOffset
+                // dao động từ 0 đến 1 màn hình
+                chicken.x = (screenWidth / 2f) * (1 + sin(phase).toFloat())
+            }
         }
 
-        for ((index, chicken) in rightWave.withIndex()) {
-            chicken.y += fallSpeedPxPerSec * dtSec
-            val phase = waveAngularSpeed * totalTimeSec + index * indexPhaseOffset
-            // đảo ngược sin để đi ngược chiều
-            chicken.x = screenWidth - (screenWidth / 2f) * (1 + sin(phase).toFloat())
+        synchronized(rightWave) {
+            for ((index, chicken) in rightWave.withIndex()) {
+                chicken.y += fallSpeedPxPerSec * dtSec
+                val phase = waveAngularSpeed * totalTimeSec + index * indexPhaseOffset
+                // đảo ngược sin để đi ngược chiều
+                chicken.x = screenWidth - (screenWidth / 2f) * (1 + sin(phase).toFloat())
+            }
         }
-
 
         // Khi tất cả rơi hết -> clear hoặc respawn
-        if (chickens.all { it.y > screenHeight + chickenBitmap.height }) {
-            // Ví dụ: respawn lại
-            // prepareDoubleSinWave()
+        synchronized(chickens) {
+            if (chickens.all { it.y > screenHeight + chickenBitmap.height }) {
+                // Ví dụ: respawn lại
+                // prepareDoubleSinWave()
+            }
         }
     }
 
@@ -261,29 +277,32 @@ class ChickenSwarm(
         val radiusX = screenWidth / 3f
         val radiusY = 80f
 
-        chickens.forEachIndexed { index, chicken ->
-            val theta = angle + index * (Math.PI / 12)
+        // Use synchronized access for thread safety
+        synchronized(chickens) {
+            chickens.forEachIndexed { index, chicken ->
+                val theta = angle + index * (Math.PI / 12)
 
-            // vị trí mục tiêu trên quỹ đạo
-            val targetX = (centerX + radiusX * kotlin.math.cos(theta)).toFloat()
-            val targetY = (centerY + radiusY * kotlin.math.sin(theta)).toFloat()
+                // vị trí mục tiêu trên quỹ đạo
+                val targetX = (centerX + radiusX * kotlin.math.cos(theta)).toFloat()
+                val targetY = (centerY + radiusY * kotlin.math.sin(theta)).toFloat()
 
-            // spawn trễ dần theo index
-            val delay = index * 0.1f
-            val localProgress = ((globalProgress - delay).coerceIn(0f, 1f))
-            val eased = easeInOutQuad(localProgress)
+                // spawn trễ dần theo index
+                val delay = index * 0.1f
+                val localProgress = ((globalProgress - delay).coerceIn(0f, 1f))
+                val eased = easeInOutQuad(localProgress)
 
-            // xuất phát từ trái hoặc phải
-            val startX = if (enterFromLeft) {
-                -chicken.bitmap.width.toFloat() - index * 40f  // ngoài màn hình trái
-            } else {
-                screenWidth + index * 40f  // ngoài màn hình phải
+                // xuất phát từ trái hoặc phải
+                val startX = if (enterFromLeft) {
+                    -chicken.bitmap.width.toFloat() - index * 40f  // ngoài màn hình trái
+                } else {
+                    screenWidth + index * 40f  // ngoài màn hình phải
+                }
+                val startY = targetY  // cùng cao độ với mục tiêu
+
+                // lerp từ start -> target
+                chicken.x = startX + (targetX - startX) * eased
+                chicken.y = startY + (targetY - startY) * eased
             }
-            val startY = targetY  // cùng cao độ với mục tiêu
-
-            // lerp từ start -> target
-            chicken.x = startX + (targetX - startX) * eased
-            chicken.y = startY + (targetY - startY) * eased
         }
     }
 
@@ -294,21 +313,29 @@ class ChickenSwarm(
             SwarmPhase.START -> {
                 // 1) Cột trái đi dọc xuống, giữ x cố định
                 val leftX = edgeMargin
-                leftChickens.forEachIndexed { idx, ch ->
-                    ch.x = leftX
-                    ch.y += descendSpeed
+                synchronized(leftChickens) {
+                    leftChickens.forEachIndexed { idx, ch ->
+                        ch.x = leftX
+                        ch.y += descendSpeed
+                    }
                 }
 
                 // 2) Cột phải đi dọc xuống, giữ x cố định
                 val rightX = (screenWidth - chickenBitmap.width - edgeMargin)
-                rightChickens.forEachIndexed { idx, ch ->
-                    ch.x = rightX
-                    ch.y += descendSpeed
+                synchronized(rightChickens) {
+                    rightChickens.forEachIndexed { idx, ch ->
+                        ch.x = rightX
+                        ch.y += descendSpeed
+                    }
                 }
 
                 // Kiểm tra "đã chạm đáy" bằng bottom coordinate
-                val leftBottom = leftChickens.maxOfOrNull { it.y + chickenBitmap.height } ?: Float.MIN_VALUE
-                val rightBottom = rightChickens.maxOfOrNull { it.y + chickenBitmap.height } ?: Float.MIN_VALUE
+                val leftBottom = synchronized(leftChickens) { 
+                    leftChickens.maxOfOrNull { it.y + chickenBitmap.height } ?: Float.MIN_VALUE 
+                }
+                val rightBottom = synchronized(rightChickens) { 
+                    rightChickens.maxOfOrNull { it.y + chickenBitmap.height } ?: Float.MIN_VALUE 
+                }
 
                 // Nếu cả hai cột đều đã chạm (hoặc vượt) đáy màn hình -> chuyển MERGE
                 if (leftBottom >= screenHeight.toFloat() && rightBottom >= screenHeight.toFloat()) {
@@ -317,23 +344,25 @@ class ChickenSwarm(
             }
 
             SwarmPhase.MERGE -> {
-                // Trước khi xếp hàng, sort chickens theo x để đảm bảo thứ tự trái->phải
-                chickens.sortBy { it.x }
+                synchronized(chickens) {
+                    // Trước khi xếp hàng, sort chickens theo x để đảm bảo thứ tự trái->phải
+                    chickens.sortBy { it.x }
 
-                val spacingX = chickenBitmap.width + 10
-                val midX = (screenWidth / 2f) - (chickens.size * spacingX) / 2f
-                val targetYUp = screenHeight * 1f / 3f // bay lên tới ~2/3 màn hình (từ trên)
+                    val spacingX = chickenBitmap.width + 10
+                    val midX = (screenWidth / 2f) - (chickens.size * spacingX) / 2f
+                    val targetYUp = screenHeight * 1f / 3f // bay lên tới ~2/3 màn hình (từ trên)
 
-                chickens.forEachIndexed { i, chicken ->
-                    val desiredX = midX + i * spacingX
-                    // Lerp tới vị trí mong muốn (mượt)
-                    chicken.x += (desiredX - chicken.x) * mergeLerp
-                    chicken.y += (targetYUp - chicken.y) * mergeLerp
-                }
+                    chickens.forEachIndexed { i, chicken ->
+                        val desiredX = midX + i * spacingX
+                        // Lerp tới vị trí mong muốn (mượt)
+                        chicken.x += (desiredX - chicken.x) * mergeLerp
+                        chicken.y += (targetYUp - chicken.y) * mergeLerp
+                    }
 
-                // Nếu tất cả gần target -> chuyển phase HORIZONTAL
-                if (chickens.all { abs(it.y - targetYUp) < 2f }) {
-                    phase = SwarmPhase.HORIZONTAL
+                    // Nếu tất cả gần target -> chuyển phase HORIZONTAL
+                    if (chickens.all { abs(it.y - targetYUp) < 2f }) {
+                        phase = SwarmPhase.HORIZONTAL
+                    }
                 }
             }
 
@@ -342,7 +371,10 @@ class ChickenSwarm(
     }
 
     fun draw(canvas: Canvas) {
-        chickens.forEach { it.draw(canvas) }
+        // Use synchronized iteration to prevent ConcurrentModificationException
+        synchronized(chickens) {
+            chickens.forEach { it.draw(canvas) }
+        }
     }
 
     fun isEmpty(): Boolean = chickens.isEmpty()
