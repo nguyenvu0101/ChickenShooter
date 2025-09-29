@@ -80,8 +80,8 @@ class Level1(
     private val bossBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.boss_chicken)
     private val bossScaledBitmap = Bitmap.createScaledBitmap(
         bossBitmap,
-        bossBitmap.width * 3 / 5,
-        bossBitmap.height * 3 / 5,
+        bossBitmap.width * 3 / 20,
+        bossBitmap.height * 3 / 20,
         true
     )
 
@@ -354,7 +354,15 @@ class Level1(
             }
 
             if (b.hp <= 0) {
+                android.util.Log.d("Level1", "Boss defeated! HP: ${b.hp}, calling onBossDefeated")
                 isLevelFinished = true
+                try {
+                    onBossDefeated?.invoke() // Gọi callback khi boss bị đánh bại
+                    android.util.Log.d("Level1", "onBossDefeated callback completed")
+                } catch (e: Exception) {
+                    android.util.Log.e("Level1", "Error in onBossDefeated callback: ${e.message}")
+                    e.printStackTrace()
+                }
             }
         }
 
@@ -463,4 +471,25 @@ class Level1(
     }
     override fun getBackground(): Bitmap = background
     override fun getLives(): Int = lives
+    
+    override fun cleanup() {
+        try {
+            super.cleanup() // Call base cleanup first
+            android.util.Log.d("Level1", "Cleaning up Level1 specific resources...")
+            
+            // Clear all collections to free memory
+            chickens.clear()
+            swarms.clear()
+            items.clear()
+            eggs.clear()
+            
+            // Clear boss if exists
+            boss = null
+            
+            android.util.Log.d("Level1", "Level1 cleanup completed")
+        } catch (e: Exception) {
+            android.util.Log.e("Level1", "Error during Level1 cleanup: ${e.message}")
+            e.printStackTrace()
+        }
+    }
 }

@@ -178,6 +178,14 @@ class ChickenProjectile(
         private var eggBitmap: Bitmap? = null
         private var shitBitmap: Bitmap? = null
         private const val PROJECTILE_SIZE = 50 // px
+        
+        // MEMORY LEAK FIX: Static paint objects to avoid allocations every frame
+        private val blackPaint = android.graphics.Paint().apply {
+            color = android.graphics.Color.BLACK
+        }
+        private val whitePaint = android.graphics.Paint().apply {
+            color = android.graphics.Color.WHITE
+        }
 
         fun init(resources: android.content.res.Resources) {
             if (eggBitmap == null) {
@@ -221,11 +229,10 @@ class ChickenProjectile(
         if (bitmap != null) {
             canvas.drawBitmap(bitmap, x - bitmap.width / 2, y - bitmap.height / 2, null)
         } else {
-            val paint = android.graphics.Paint().apply {
-                color = when (type) {
-                    ProjectileType.SHIT -> android.graphics.Color.BLACK
-                    ProjectileType.EGG -> android.graphics.Color.WHITE
-                }
+            // MEMORY LEAK FIX: Use static paint objects instead of creating new ones every frame
+            val paint = when (type) {
+                ProjectileType.SHIT -> blackPaint
+                ProjectileType.EGG -> whitePaint
             }
             canvas.drawCircle(x, y, 5f, paint)
         }

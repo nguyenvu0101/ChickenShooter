@@ -9,18 +9,26 @@ package com.example.chickenshooter
     import android.graphics.Rect
     import android.graphics.RectF
     import android.graphics.Path
+    import android.graphics.PointF
     import android.view.MotionEvent
     import android.view.SurfaceHolder
     import android.view.SurfaceView
     import android.media.SoundPool
     import com.example.chickenshooter.levels.*
-    import com.google.firebase.auth.ktx.auth
-    import com.google.firebase.ktx.Firebase
     import android.media.MediaPlayer
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
     // CHế độ bắn súng
     enum class GunMode {
         NORMAL, FAST, TRIPLE_PARALLEL, TRIPLE_SPREAD
     }
+
+    // Phase system cho story integration
+    private enum class Phase { INTRO, PLAYING, RESCUE, DIALOG }
+
+    // Story data structures
+    data class LevelScript(val opening: DialogueScene, val ending: DialogueScene)
 
     class GameView(context: Context, private val backgroundId: Int, planeId: Int) :
         SurfaceView(context), SurfaceHolder.Callback {
@@ -152,9 +160,151 @@ package com.example.chickenshooter
         private var pauseButtonRect: Rect? = null
 
         // Coins
-        private val userRepo = UserRepoRTDB()
         private var localCoin = 0
         private var coinBeforePlay = 0
+
+        // Memory management method
+        private fun cleanupPreviousLevel() {
+            try {
+                android.util.Log.d("GameView", "Cleaning up previous level resources...")
+                
+                // Stop and release MediaPlayer
+                mediaPlayer?.let {
+                    if (it.isPlaying) it.stop()
+                    it.release()
+                    mediaPlayer = null
+                    android.util.Log.d("GameView", "MediaPlayer released")
+                }
+                
+                // Cleanup level if it exists
+                if (::currentLevel.isInitialized) {
+                    currentLevel.cleanup() // Assume levels have cleanup method
+                    android.util.Log.d("GameView", "Level cleaned up")
+                }
+                
+                // MEMORY LEAK FIX: Recycle cached bitmaps
+                lifeIconBitmap?.let {
+                    if (!it.isRecycled) {
+                        it.recycle()
+                    }
+                    lifeIconBitmap = null
+                    android.util.Log.d("GameView", "Life icon bitmap recycled")
+                }
+                
+                // Force garbage collection to free memory immediately
+                System.gc()
+                
+                // Short delay to allow GC to complete
+                Thread.sleep(50)
+                android.util.Log.d("GameView", "Cleanup completed, GC requested")
+                
+            } catch (e: Exception) {
+                android.util.Log.e("GameView", "Error during cleanup: ${e.message}")
+                e.printStackTrace()
+            }
+        }
+
+        // Story managers và phase system
+        private var phase = Phase.INTRO
+        private lateinit var introManager: IntroManager
+        private lateinit var dialogManager: DialogManager
+        private var rescueAvatar: RescueAvatar? = null
+        private var rescueTimeout = 0 // Timeout để tránh stuck ở rescue phase
+        private var updateCallCount = 0 // Emergency counter để detect infinite loops
+        private lateinit var avatarMap: Map<Speaker, Bitmap>
+        
+        // Input queue system for non-blocking touch handling
+        private val inputQueue = InputQueue()
+        private lateinit var dialoguePreloader: DialoguePreloader
+        private val performanceMonitor = PerformanceMonitor()
+        
+        // MEMORY LEAK FIX: Cache life icon bitmap
+        private var lifeIconBitmap: Bitmap? = null
+        
+        // MEMORY LEAK FIX: Cache Paint objects to avoid creating new ones every frame
+        private val uiPaint = Paint()
+        private val manaFilledPaint = Paint().apply {
+            color = Color.CYAN
+            style = Paint.Style.STROKE
+            strokeWidth = 8f
+            isAntiAlias = true
+        }
+        private val manaEmptyPaint = Paint().apply {
+            color = Color.argb(80, 200, 200, 200)
+            style = Paint.Style.STROKE
+            strokeWidth = 8f
+            isAntiAlias = true
+        }
+        
+        // Flags để theo dõi story content
+        private var isFirstGameStart = true // Chỉ hiện intro lần đầu
+        private var shouldShowStoryContent = true // Hiện dialogue và rescue cho lần đầu chơi
+
+        // Story content
+        private val RESCUED_BY_LEVEL = mapOf(
+            1 to Speaker.SOL,
+            2 to Speaker.KICM,
+            3 to Speaker.THIEN_AN,
+            4 to Speaker.FIREFLIES
+        )
+
+       private val STORY = mapOf(
+    1 to LevelScript(
+        // Rescued: SOL
+        opening = DialogueScene(listOf(
+            DialogueLine(Speaker.JACK,      "Sol, bám vững nhé! Cha đang mở đường xuyên qua ổ gà thiên hà đây!"),
+            DialogueLine(Speaker.SOL,       "Con thấy ánh đèn của cha rồi! Con ở đây, cha đừng lo!"),
+            DialogueLine(Speaker.BOSS,      "Vô ích, phàm nhân! Ổ gà của ta không dành cho tình thân yếu đuối!")
+        )),
+        ending = DialogueScene(listOf(
+            DialogueLine(Speaker.JACK,      "Cha đến rồi, Sol! Từ nay bất cứ nơi đâu con ở, cha cũng tìm thấy."),
+            DialogueLine(Speaker.SOL,       "Con tin cha mà! Dải ngân hà rộng lớn nhưng trái tim con không còn sợ."),
+            DialogueLine(Speaker.BOSS,      "Khặc… khặc… tận hưởng đi! Lần tới, lông cánh thép của ta sẽ nghiền nát hy vọng!")
+        ))
+    ),
+
+    2 to LevelScript(
+        // Rescued: KICM — UPDATED
+        opening = DialogueScene(listOf(
+            DialogueLine(Speaker.JACK,      "K-ICM! Mình đã mở hành lang lửa—bám theo quỹ đạo đạn của mình!"),
+            DialogueLine(Speaker.KICM,      "Rõ! Mình thả vòng bass gây nhiễu tín hiệu—cậu cứ lao thẳng vào lõi phòng tuyến!"),
+            DialogueLine(Speaker.BOSS,      "Nhạc của các ngươi chỉ là tạp âm trước tiếng gáy tối hậu của ta!")
+        )),
+        ending = DialogueScene(listOf(
+            DialogueLine(Speaker.JACK,      "Xích đã đứt rồi. Cùng nhau viết lại giai điệu cho cả bầu trời này."),
+            DialogueLine(Speaker.KICM,      "Đổi nhịp sang tự do—từ nay beat của chúng ta át mọi tiếng gà trong vũ trụ!"),
+            DialogueLine(Speaker.BOSS,      "Khà… khà… nhớ soạn sẵn bản nhạc tang—các ngươi sẽ cần sớm thôi!")
+        ))
+    ),
+
+    3 to LevelScript(
+        // Rescued: THIEN_AN — NAME FIXED TO "Thiên An"
+        opening = DialogueScene(listOf(
+            DialogueLine(Speaker.JACK,      "Thiên An! Dù kết giới photon có bóp méo không gian, anh vẫn bắt được tín hiệu của em!"),
+            DialogueLine(Speaker.THIEN_AN,  "Em bình tĩnh đây, Jack. Chỉ cần anh tới, bóng tối cũng phải lùi."),
+            DialogueLine(Speaker.BOSS,      "Lời hứa mỏng manh! Hố đen của ta nuốt sạch mọi ánh nhìn si tình!")
+        )),
+        ending = DialogueScene(listOf(
+            DialogueLine(Speaker.JACK,      "Thiên An đã thoát rồi—nắm tay anh, ta bẻ gãy xiềng xích của đêm đen."),
+            DialogueLine(Speaker.THIEN_AN,  "Ánh sáng nơi anh đủ ấm để gom cả bầu trời về một phía."),
+            DialogueLine(Speaker.BOSS,      "Hừ! Tình yêu à… ta sẽ cho nó bão từ để tắt lịm!")
+        ))
+    ),
+
+    4 to LevelScript(
+        // Rescued: FIREFLIES
+        opening = DialogueScene(listOf(
+            DialogueLine(Speaker.JACK,      "Đom Đóm, tụ lại! Ánh sáng nhỏ của các em dẫn đường cho cả hạm đội!"),
+            DialogueLine(Speaker.FIREFLIES, "Chúng em chớp cánh theo nhịp anh! Tối mấy cũng cứ bừng lên!"),
+            DialogueLine(Speaker.BOSS,      "Lấp lánh vô nghĩa! Ta phủ bóng đêm lên từng đốm sáng bé nhỏ!")
+        )),
+        ending = DialogueScene(listOf(
+            DialogueLine(Speaker.JACK,      "Tự do rồi, Đom Đóm! Hãy bay và thắp sao vào từng vệt trời."),
+            DialogueLine(Speaker.FIREFLIES, "Có anh, chúng em không lạc nữa! Chớp—chớp—thành dải ngân hà!"),
+            DialogueLine(Speaker.BOSS,      "Được lắm… lần sau ta mang theo nhật thực vĩnh cửu!")
+        ))
+    )
+)
 
         init {
             holder.addCallback(this)
@@ -170,6 +320,16 @@ package com.example.chickenshooter
             var retry = true
             thread.running = false
             soundPool.release()
+            
+            // Giải phóng avatar bitmaps
+            if (::avatarMap.isInitialized) {
+                avatarMap.values.forEach { bitmap ->
+                    if (!bitmap.isRecycled) {
+                        bitmap.recycle()
+                    }
+                }
+            }
+            
             while (retry) {
                 try {
                     thread.join()
@@ -199,61 +359,130 @@ package com.example.chickenshooter
             targetX = centerX.toFloat()
             targetY = bottomY.toFloat()
 
+            // Load avatar bitmaps with error handling
+            try {
+                avatarMap = mapOf(
+                    Speaker.JACK to BitmapFactory.decodeResource(resources, R.drawable.avatar_jack),
+                    Speaker.BOSS to BitmapFactory.decodeResource(resources, R.drawable.avatar_boss),
+                    Speaker.SOL to BitmapFactory.decodeResource(resources, R.drawable.avatar_sol),
+                    Speaker.KICM to BitmapFactory.decodeResource(resources, R.drawable.avatar_kicm),
+                    Speaker.THIEN_AN to BitmapFactory.decodeResource(resources, R.drawable.avatar_thien_an),
+                    Speaker.FIREFLIES to BitmapFactory.decodeResource(resources, R.drawable.avatar_fireflies)
+                )
+                android.util.Log.d("GameView", "Avatar bitmaps loaded successfully")
+            } catch (e: Exception) {
+                android.util.Log.e("GameView", "Error loading avatar bitmaps: ${e.message}")
+                // Create empty avatarMap as fallback
+                avatarMap = emptyMap()
+            }
 
-            // chức năng online/offline
-            if (isOfflineMode()) {
-                val prefs = context.getSharedPreferences("game", Context.MODE_PRIVATE)
-                localCoin = prefs.getLong("coins", 0L).toInt()
-                coinBeforePlay = localCoin
-                startLevel(1)
-                thread.running = true
-                thread.start()
-            } else {
-                Firebase.auth.currentUser?.uid?.let { uid ->
-                    userRepo.loadOnlineProfileOnce(
-                        uid,
-                        onDone = { name: String, coins: Long ->
-                            localCoin = coins.toInt()
-                            coinBeforePlay = coins.toInt()
-                            startLevel(1)
-                            thread.running = true
-                            thread.start()
-                        },
-                        onErr = { msg ->
-                            localCoin = 0
-                            coinBeforePlay = 0
-                            startLevel(1)
-                            thread.running = true
-                            thread.start()
-                        }
-                    )
+            // Initialize dialogue preloader
+            try {
+                dialoguePreloader = DialoguePreloader(context)
+                android.util.Log.d("GameView", "DialoguePreloader initialized successfully")
+            } catch (e: Exception) {
+                android.util.Log.e("GameView", "Error initializing DialoguePreloader: ${e.message}")
+                e.printStackTrace()
+                endGameAndReturnToMenu()
+                return
+            }
+            
+            // Initialize story managers - DialogManager MUST be initialized first
+            try {
+                dialogManager = DialogManager(width, height, avatarMap)
+                android.util.Log.d("GameView", "DialogManager initialized successfully")
+            } catch (e: Exception) {
+                android.util.Log.e("GameView", "Error initializing DialogManager: ${e.message}")
+                e.printStackTrace()
+                endGameAndReturnToMenu()
+                return
+            }
+            
+            introManager = IntroManager(width, height) {
+                // Callback khi intro hoàn thành - with error handling
+                try {
+                    android.util.Log.d("GameView", "Intro completed, starting level 1")
+                    isFirstGameStart = false // Đánh dấu intro đã xem
+                    // shouldShowStoryContent vẫn là true để hiện dialogue
+                    phase = Phase.PLAYING
+                    startLevel(1)
+                } catch (e: Exception) {
+                    android.util.Log.e("GameView", "Error in intro callback: ${e.message}")
+                    e.printStackTrace()
+                    endGameAndReturnToMenu()
                 }
             }
+
+            // Set phase to INTRO chỉ khi lần đầu start game
+            if (isFirstGameStart) {
+                phase = Phase.INTRO
+                android.util.Log.d("GameView", "First game start - showing intro")
+            } else {
+                phase = Phase.PLAYING
+                android.util.Log.d("GameView", "Not first start - skipping intro")
+                // Start level 1 immediately when not first time
+                startLevel(1)
+            }
+
+
+            // Load offline profile
+            val prefs = context.getSharedPreferences("game", Context.MODE_PRIVATE)
+            localCoin = prefs.getLong("coins", 0L).toInt()
+            coinBeforePlay = localCoin
+            thread.running = true
+            thread.start()
         }
 
         fun startLevel(newLevel: Int) {
-            level = newLevel
+            android.util.Log.d("GameView", "startLevel($newLevel) called")
+            
+            // RACE CONDITION FIX: Synchronize level creation to prevent currentLevel access before ready
+            synchronized(this) {
+                level = newLevel
 
-            // 1. Giải phóng nhạc nền cũ nếu có (tránh trùng tiếng, tránh leak RAM)
-            mediaPlayer?.release()
-            mediaPlayer = null
+                // 1. Giải phóng nhạc nền cũ nếu có (tránh trùng tiếng, tránh leak RAM)
+                mediaPlayer?.release()
+                mediaPlayer = null
+                android.util.Log.d("GameView", "Old media player released")
 
-            // 2. Gán nhạc nền cho từng màn, chỉ play khi isMusicOn = true
-            if (level in 1..levelMusicResIds.size) {
-                mediaPlayer = MediaPlayer.create(context, levelMusicResIds[level - 1])
-                mediaPlayer?.isLooping = true
-                if (isMusicOn) mediaPlayer?.start()
+                // 3. Khởi tạo màn chơi theo level như cũ - with error handling
+                try {
+                    android.util.Log.d("GameView", "Creating Level $level...")
+                    currentLevel = when (level) {
+                    1 -> {
+                        android.util.Log.d("GameView", "Creating Level1 instance...")
+                        Level1(context, player, bulletBitmap, itemBitmaps, coinBitmap, backgroundId)
+                    }
+                    2 -> {
+                        android.util.Log.d("GameView", "Creating Level2 instance...")
+                        Level2(context, player, bulletBitmap, itemBitmaps, coinBitmap, backgroundId)
+                    }
+                    3 -> {
+                        android.util.Log.d("GameView", "Creating Level3 instance...")
+                        Level3(context, player, bulletBitmap, itemBitmaps, coinBitmap, backgroundId)
+                    }
+                    4 -> {
+                        android.util.Log.d("GameView", "Creating Level4 instance...")
+                        Level4(context, player, bulletBitmap, itemBitmaps, coinBitmap, backgroundId)
+                    }
+                    else -> {
+                        android.util.Log.d("GameView", "Creating default Level1 instance...")
+                        Level1(context, player, bulletBitmap, itemBitmaps, coinBitmap, backgroundId)
+                    }
+                }
+                android.util.Log.d("GameView", "Level $level created, setting screen size...")
+                currentLevel.setScreenSize(width, height)
+                android.util.Log.d("GameView", "Level $level initialized successfully")
+            } catch (e: Exception) {
+                android.util.Log.e("GameView", "Error initializing level $level: ${e.message}")
+                e.printStackTrace()
+                // Fallback to returning to menu
+                endGameAndReturnToMenu()
+                return
             }
 
-            // 3. Khởi tạo màn chơi theo level như cũ
-            currentLevel = when (level) {
-                1 -> Level1(context, player, bulletBitmap, itemBitmaps, coinBitmap, backgroundId)
-                2 -> Level2(context, player, bulletBitmap, itemBitmaps, coinBitmap, backgroundId)
-                3 -> Level3(context, player, bulletBitmap, itemBitmaps, coinBitmap, backgroundId)
-                4 -> Level4(context, player, bulletBitmap, itemBitmaps, coinBitmap, backgroundId)
-                else -> Level1(context, player, bulletBitmap, itemBitmaps, coinBitmap, backgroundId)
-            }
-            currentLevel.setScreenSize(width, height)
+            // Set boss defeat callback để kích hoạt rescue cutscene
+            setBossDefeatedCallback()
 // Đặt lại vị trí player
             player.x = width / 2 - playerBitmap.width / 2
             player.y = height - playerBitmap.height - 30
@@ -263,14 +492,8 @@ package com.example.chickenshooter
             // 4. Xử lý cộng xu khi nhặt coin
             currentLevel.onCoinCollected = { amount: Int ->
                 localCoin += amount
-                if (isOfflineMode()) {
-                    val prefs = context.getSharedPreferences("game", Context.MODE_PRIVATE)
-                    prefs.edit().putLong("coins", localCoin.toLong()).apply()
-                } else {
-                    Firebase.auth.currentUser?.uid?.let { uid ->
-                        userRepo.addCoins(uid, amount.toLong())
-                    }
-                }
+                val prefs = context.getSharedPreferences("game", Context.MODE_PRIVATE)
+                prefs.edit().putLong("coins", localCoin.toLong()).apply()
             }
 
             // 5. Reset các biến hỗ trợ level
@@ -281,34 +504,132 @@ package com.example.chickenshooter
             autoShootCounter = 0
             isLevelChanging = true
             levelChangeCounter = 0
-        }
 
-        //
-        private fun isOfflineMode(): Boolean {
-            val prefs = context.getSharedPreferences("game", Context.MODE_PRIVATE)
-            return prefs.getBoolean("offline_mode", false)
-        }
-
-        fun endGameAndReturnToMenu() {
-            val coinEarned = localCoin - coinBeforePlay
-            if (!isOfflineMode()) {
-                Firebase.auth.currentUser?.uid?.let { uid ->
-                    userRepo.addCoins(
-                        uid, coinEarned.toLong(),
-                        onOk = { /* ... */ },
-                        onErr = { msg ->
-                            android.widget.Toast.makeText(
-                                context,
-                                "Lỗi lưu coin: $msg",
-                                android.widget.Toast.LENGTH_LONG
-                            ).show()
+            // Preload and start opening dialogue when story content is enabled
+            if (shouldShowStoryContent) {
+                try {
+                    STORY[level]?.opening?.let { openingScene ->
+                        // Preload assets off-main-thread
+                        GlobalScope.launch(Dispatchers.IO) {
+                            try {
+                                android.util.Log.d("GameView", "Preloading dialogue assets for level $level...")
+                                val resources = dialoguePreloader.preload(openingScene, avatarMap)
+                                
+                                // Switch back to main thread to start dialogue
+                                GlobalScope.launch(Dispatchers.Main) {
+                                    try {
+                                        dialogManager.startScene(openingScene, resources)
+                                        android.util.Log.d("GameView", "Opening dialogue started with preloaded resources")
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("GameView", "Error starting preloaded dialogue: ${e.message}")
+                                        // Fallback to old method
+                                        dialogManager.queueScene(openingScene)
+                                        dialogManager.startIfAny()
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                android.util.Log.e("GameView", "Error preloading dialogue assets: ${e.message}")
+                                // Fallback to old method
+                                GlobalScope.launch(Dispatchers.Main) {
+                                    dialogManager.queueScene(openingScene)
+                                    dialogManager.startIfAny()
+                                }
+                            }
                         }
-                    )
+                    }
+                    android.util.Log.d("GameView", "Opening dialogue preload initiated (story content enabled)")
+                } catch (e: Exception) {
+                    // Fallback - nếu dialogue fail, chỉ log và continue game
+                    android.util.Log.e("GameView", "Error starting dialogue: ${e.message}")
                 }
             } else {
-                val prefs = context.getSharedPreferences("game", Context.MODE_PRIVATE)
-                prefs.edit().putLong("coins", localCoin.toLong()).apply()
+                android.util.Log.d("GameView", "Skipping opening dialogue (story content disabled)")
             }
+
+            // MEMORY LEAK FIX: Cleanup previous level resources
+            cleanupPreviousLevel()
+
+            // Setup music LAST - if we reach here, everything else worked
+            try {
+                if (level in 1..levelMusicResIds.size) {
+                    mediaPlayer = MediaPlayer.create(context, levelMusicResIds[level - 1])
+                    mediaPlayer?.isLooping = true
+                    if (isMusicOn) mediaPlayer?.start()
+                    android.util.Log.d("GameView", "Level $level music started successfully")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("GameView", "Error starting music: ${e.message}")
+            }
+
+            android.util.Log.d("GameView", "startLevel($newLevel) completed successfully")
+            } // End synchronized block
+        }
+
+        private fun setBossDefeatedCallback() {
+            // Set boss defeat callback - sử dụng BaseLevel property trực tiếp với error handling
+            try {
+                currentLevel.onBossDefeated = {
+                    try {
+                        android.util.Log.d("GameView", "Boss defeated callback triggered! Level: $level, shouldShowStoryContent: $shouldShowStoryContent")
+                        if (shouldShowStoryContent) {
+                            // Show rescue animation + ending dialogue for story playthrough
+                            android.util.Log.d("GameView", "Starting rescue animation...")
+                            phase = Phase.RESCUE
+                            val speaker = RESCUED_BY_LEVEL[level] ?: Speaker.SOL
+                            val startX = width / 2f
+                            val startY = height * 0.35f
+                            android.util.Log.d("GameView", "Getting avatar dock center...")
+                            val dock = dialogManager.avatarDockCenter()
+                            val avatarBitmap = avatarMap[speaker]
+                            if (avatarBitmap != null) {
+                                android.util.Log.d("GameView", "Creating RescueAvatar for speaker: $speaker, from ($startX,$startY) to (${dock.x},${dock.y})")
+                                rescueAvatar = RescueAvatar(
+                                    avatarBitmap, 
+                                    startX, startY, 
+                                    dock.x, dock.y, 
+                                    durationFrames = 60
+                                )
+                                rescueTimeout = 0 // Reset timeout
+                            } else {
+                                android.util.Log.e("GameView", "Avatar bitmap is null for speaker: $speaker")
+                                // Fallback - skip rescue, go to dialogue directly
+                                phase = Phase.DIALOG
+                                STORY[level]?.ending?.let { endingScene ->
+                                    dialogManager.queueScene(endingScene)
+                                    dialogManager.startIfAny()
+                                }
+                            }
+                            android.util.Log.d("GameView", "RescueAvatar created successfully")
+                        } else {
+                            // Skip rescue animation and dialogue for subsequent playthroughs
+                            android.util.Log.d("GameView", "Skipping story content, moving to next level")
+                            if (level < maxLevel) {
+                                phase = Phase.PLAYING
+                                startLevel(level + 1)
+                            } else {
+                                endGameAndReturnToMenu()
+                            }
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("GameView", "Error in boss defeat callback: ${e.message}")
+                        // Fallback - go to next level or end game
+                        if (level < maxLevel) {
+                            phase = Phase.PLAYING
+                            startLevel(level + 1)
+                        } else {
+                            endGameAndReturnToMenu()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("GameView", "Error setting boss defeat callback: ${e.message}")
+            }
+        }
+
+
+        fun endGameAndReturnToMenu() {
+            val prefs = context.getSharedPreferences("game", Context.MODE_PRIVATE)
+            prefs.edit().putLong("coins", localCoin.toLong()).apply()
             mediaPlayer?.release()
             mediaPlayer = null
             thread.running = false
@@ -325,6 +646,119 @@ package com.example.chickenshooter
         fun update() {
             if (isPaused) return
 
+            // Process input queue - NON-BLOCKING
+            processInputQueue()
+
+            // Emergency break để tránh ANR
+            updateCallCount++
+            if (updateCallCount % 1000 == 0) {
+                android.util.Log.w("GameView", "Update called $updateCallCount times, phase: $phase")
+            }
+            
+            // Emergency reset nếu quá nhiều calls trong thời gian ngắn
+            if (updateCallCount > 10000) {
+                android.util.Log.e("GameView", "Emergency: Too many update calls! Resetting to PLAYING phase")
+                phase = Phase.PLAYING
+                rescueAvatar = null
+                updateCallCount = 0
+            }
+
+            // Handle story phases
+            if (phase == Phase.INTRO) {
+                introManager.update()
+                return
+            }
+
+            // Early exit if currentLevel not initialized yet (during level transition or intro)
+            // Use synchronized to match startLevel synchronization
+            if (phase != Phase.INTRO) {
+                synchronized(this) {
+                    if (!::currentLevel.isInitialized) {
+                        android.util.Log.w("GameView", "update() called but currentLevel not initialized yet, phase: $phase")
+                        return
+                    }
+                }
+            }
+
+            if (phase == Phase.RESCUE) {
+                if (rescueAvatar == null) {
+                    android.util.Log.e("GameView", "In RESCUE phase but rescueAvatar is null! Switching to DIALOG")
+                    phase = Phase.DIALOG
+                    return
+                }
+                // Only log every 60 frames to avoid spam
+                if (rescueTimeout % 60 == 0) {
+                    android.util.Log.d("GameView", "In RESCUE phase, updating rescue avatar... (timeout: $rescueTimeout)")
+                }
+                rescueAvatar?.update()
+                rescueTimeout++
+                
+                // Timeout after 2 seconds (120 frames at 60fps) - reduced for safety
+                if (rescueTimeout > 120) {
+                    android.util.Log.w("GameView", "Rescue animation timeout! Force completing...")
+                    rescueAvatar = null
+                    rescueTimeout = 0
+                    if (shouldShowStoryContent) {
+                        phase = Phase.DIALOG
+                        STORY[level]?.ending?.let { endingScene ->
+                            dialogManager.queueScene(endingScene)
+                            dialogManager.startIfAny()
+                        }
+                    } else {
+                        // Skip to next level
+                        if (level < maxLevel) {
+                            phase = Phase.PLAYING
+                            startLevel(level + 1)
+                        } else {
+                            endGameAndReturnToMenu()
+                        }
+                    }
+                    return
+                }
+                
+                if (rescueAvatar?.arrived == true) {
+                        android.util.Log.d("GameView", "Rescue avatar arrived! shouldShowStoryContent: $shouldShowStoryContent")
+                        // Rescue animation hoàn thành, chuyển sang ending dialogue (khi story content enabled)
+                        if (shouldShowStoryContent) {
+                            android.util.Log.d("GameView", "Starting ending dialogue...")
+                            STORY[level]?.ending?.let { endingScene ->
+                                dialogManager.queueScene(endingScene)
+                                dialogManager.startIfAny()
+                            }
+                            rescueAvatar = null
+                            phase = Phase.DIALOG
+                            android.util.Log.d("GameView", "Switched to DIALOG phase")
+                        } else {
+                            // Skip ending dialogue, go directly to next level
+                            android.util.Log.d("GameView", "Skipping ending dialogue...")
+                            rescueAvatar = null
+                            if (level < maxLevel) {
+                                phase = Phase.PLAYING
+                                startLevel(level + 1)
+                            } else {
+                                endGameAndReturnToMenu()
+                            }
+                        }
+                }
+                return
+            }
+
+            if (dialogManager.isActiveOrHasQueue()) {
+                dialogManager.update()
+                // Set phase to DIALOG when dialogue is active (for touch handling)
+                if (phase == Phase.PLAYING) {
+                    android.util.Log.d("GameView", "Switching to DIALOG phase for opening scene")
+                    phase = Phase.DIALOG
+                }
+                return // Pause gameplay while dialogues are showing
+            }
+            
+            // Additional safety check - if we're not in PLAYING phase but should be, and level is not ready
+            if (phase == Phase.PLAYING && !::currentLevel.isInitialized) {
+                android.util.Log.w("GameView", "In PLAYING phase but currentLevel not ready - waiting...")
+                return
+            }
+
             // delay chuyênr level
             if (isLevelChanging) {
                 levelChangeCounter++
@@ -334,8 +768,8 @@ package com.example.chickenshooter
                 return
             }
 
-            // nếu hết mạng thì mở game over
-            if (currentLevel.getLives() <= 0) {
+            // nếu hết mạng thì mở game over - check if currentLevel exists first
+            if (::currentLevel.isInitialized && currentLevel.getLives() <= 0) {
                 isGameOver = true
                 showGameOverMenu = true
                 return
@@ -348,8 +782,8 @@ package com.example.chickenshooter
                 }
                 return
             }
-            // nếu end màn thì mở màn mới hoặc end game
-            if (currentLevel.isCompleted()) {
+            // nếu end màn thì mở màn mới hoặc end game - check if currentLevel exists first
+            if (::currentLevel.isInitialized && currentLevel.isCompleted()) {
                 if (level < maxLevel) {
                     startLevel(level + 1)
                 } else {
@@ -373,12 +807,12 @@ package com.example.chickenshooter
                 val offset = 40
                 when (gunMode) {
                     GunMode.NORMAL, GunMode.FAST -> {
-                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 90.0))
+                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2000, 90.0))
                         if (isSoundOn) soundPool.play(gunshotSoundId, 1f, 1f, 1, 0, 1f)
                     }
 
                     GunMode.TRIPLE_PARALLEL -> {
-                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 90.0))
+                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2000, 90.0))
                         bullets.add(Bullet(center - offset, bulletY, bulletBitmap, 30, 2, 90.0))
                         bullets.add(Bullet(center + offset, bulletY, bulletBitmap, 30, 2, 90.0))
 
@@ -386,7 +820,7 @@ package com.example.chickenshooter
                     }
 
                     GunMode.TRIPLE_SPREAD -> {
-                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 90.0))
+                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2000, 90.0))
                         bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 110.0))
                         bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 70.0))
                         if (isSoundOn) soundPool.play(gunshotSoundId, 1f, 1f, 1, 0, 1f)
@@ -399,13 +833,15 @@ package com.example.chickenshooter
             bullets.forEach { it.update() }
             bullets.removeAll { it.y < 0 || it.x < 0 || it.x > width }
 
-            // update level
-            currentLevel.update(bullets)
+            // update level - check if currentLevel exists first
+            if (::currentLevel.isInitialized) {
+                currentLevel.update(bullets)
 
-            currentLevel.pickedGunMode?.let {
-                gunMode = it
-                gunModeTimer = 0
-                currentLevel.pickedGunMode = null
+                currentLevel.pickedGunMode?.let {
+                    gunMode = it
+                    gunModeTimer = 0
+                    currentLevel.pickedGunMode = null
+                }
             }
             // item đổi súng
             if (gunMode != GunMode.NORMAL) {
@@ -413,8 +849,8 @@ package com.example.chickenshooter
                 if (gunModeTimer > gunModeDuration) gunMode = GunMode.NORMAL
             }
             missile?.update()
-// Khi tên lửa vừa bắt đầu nổ, xóa sạch quái và trừ máu boss cho mọi level
-            if (missile != null && missile!!.isExploding && missile!!.explosionFrame == 1) {
+            // Khi tên lửa vừa bắt đầu nổ, xóa sạch quái và trừ máu boss cho mọi level
+            if (missile != null && missile!!.isExploding && missile!!.explosionFrame == 1 && ::currentLevel.isInitialized) {
                 when (currentLevel) {
                     is Level1 -> {
                         val level = currentLevel as Level1
@@ -453,7 +889,9 @@ package com.example.chickenshooter
             // Xóa hiệu ứng khi nổ xong
             if (missile?.isFinished() == true) {
                 missile = null
-                currentLevel.manaCount = 0
+                if (::currentLevel.isInitialized) {
+                    currentLevel.manaCount = 0
+                }
             }
 
             // Xử lý di chuyển mượt mà cho máy bay
@@ -509,14 +947,27 @@ package com.example.chickenshooter
 
         override fun draw(canvas: Canvas) {
             super.draw(canvas)
-            currentLevel.draw(canvas, bullets)
+            
+            // Vẽ gameplay chỉ khi không phải INTRO phase và currentLevel đã được khởi tạo
+            if (phase != Phase.INTRO && ::currentLevel.isInitialized) {
+                currentLevel.draw(canvas, bullets)
+            }
 
-            val paint = Paint()
-            val currentMana = currentLevel.manaCount
-            val manaNeeded = currentLevel.manaNeededForMissile
-            val lifeIcon = Bitmap.createScaledBitmap(playerBitmap, 60, 60, true)
-            for (i in 0 until currentLevel.getLives()) {
-                canvas.drawBitmap(lifeIcon, 40f + i * 70, 80f, paint)
+            val paint = uiPaint
+            
+            // Chỉ vẽ UI gameplay khi không phải INTRO phase
+            if (phase != Phase.INTRO && ::currentLevel.isInitialized) {
+                val currentMana = currentLevel.manaCount
+                val manaNeeded = currentLevel.manaNeededForMissile
+                
+                // MEMORY LEAK FIX: Cache life icon bitmap instead of creating new one every frame
+                if (lifeIconBitmap == null) {
+                    lifeIconBitmap = Bitmap.createScaledBitmap(playerBitmap, 60, 60, true)
+                }
+                
+                for (i in 0 until currentLevel.getLives()) {
+                    canvas.drawBitmap(lifeIconBitmap!!, 40f + i * 70, 80f, paint)
+                }
             }
 
             // Vẽ số xu
@@ -543,54 +994,52 @@ package com.example.chickenshooter
             val centerX = pauseBtnX + pauseBtnSize / 2
             val centerY = pauseBtnY + pauseBtnSize / 2
 
-            // Vẽ nút tên lửa/missile
-            val btnX = width - missileButtonBitmapScaled.width - 40
-            val btnY = height - missileButtonBitmapScaled.height - 40
-            canvas.drawBitmap(missileButtonBitmapScaled, btnX.toFloat(), btnY.toFloat(), null)
+            // Vẽ nút tên lửa/missile (chỉ khi không phải INTRO)
+            if (phase != Phase.INTRO && ::currentLevel.isInitialized) {
+                val currentMana = currentLevel.manaCount
+                val manaNeeded = currentLevel.manaNeededForMissile
+                
+                val btnX = width - missileButtonBitmapScaled.width - 40
+                val btnY = height - missileButtonBitmapScaled.height - 40
+                canvas.drawBitmap(missileButtonBitmapScaled, btnX.toFloat(), btnY.toFloat(), null)
 
-            // Thông số vòng tròn mana cho tên lửa
-            val cx = btnX + missileButtonBitmapScaled.width / 2f
-            val cy = btnY + missileButtonBitmapScaled.height / 2f
-            val radius = missileButtonBitmapScaled.width / 2f + 16f
-            val manaStrokeWidth = 14f
-            val sweep = 360f / manaNeeded
+                // Thông số vòng tròn mana cho tên lửa
+                val cx = btnX + missileButtonBitmapScaled.width / 2f
+                val cy = btnY + missileButtonBitmapScaled.height / 2f
+                val radius = missileButtonBitmapScaled.width / 2f + 16f
+                val manaStrokeWidth = 14f
+                val sweep = 360f / manaNeeded
 
-            val paintFilled = Paint().apply {
-                color = Color.CYAN
-                style = Paint.Style.STROKE
-                strokeWidth = manaStrokeWidth
-                isAntiAlias = true
-            }
-            val paintEmpty = Paint().apply {
-                color = Color.argb(80, 200, 200, 200)
-                style = Paint.Style.STROKE
-                strokeWidth = manaStrokeWidth
-                isAntiAlias = true
-            }
+                // MEMORY LEAK FIX: Use cached paint objects with dynamic stroke width
+                manaFilledPaint.strokeWidth = manaStrokeWidth
+                manaEmptyPaint.strokeWidth = manaStrokeWidth
+                val paintFilled = manaFilledPaint
+                val paintEmpty = manaEmptyPaint
 
-            // Vẽ các cung đã nhặt được mana
-            for (i in 0 until currentMana.coerceAtMost(manaNeeded)) {
-                val startAngle = -90f + i * sweep
-                canvas.drawArc(
-                    cx - radius, cy - radius, cx + radius, cy + radius,
-                    startAngle, sweep - 6,  // trừ 6 độ để có khe
-                    false, paintFilled
+                // Vẽ các cung đã nhặt được mana
+                for (i in 0 until currentMana.coerceAtMost(manaNeeded)) {
+                    val startAngle = -90f + i * sweep
+                    canvas.drawArc(
+                        cx - radius, cy - radius, cx + radius, cy + radius,
+                        startAngle, sweep - 6,  // trừ 6 độ để có khe
+                        false, paintFilled
+                    )
+                }
+                // Vẽ các cung chưa nhặt
+                for (i in currentMana until manaNeeded) {
+                    val startAngle = -90f + i * sweep
+                    canvas.drawArc(
+                        cx - radius, cy - radius, cx + radius, cy + radius,
+                        startAngle, sweep - 6,
+                        false, paintEmpty
+                    )
+                }
+                missileBtnRect = Rect(
+                    btnX, btnY,
+                    btnX + missileButtonBitmapScaled.width,
+                    btnY + missileButtonBitmapScaled.height
                 )
             }
-            // Vẽ các cung chưa nhặt
-            for (i in currentMana until manaNeeded) {
-                val startAngle = -90f + i * sweep
-                canvas.drawArc(
-                    cx - radius, cy - radius, cx + radius, cy + radius,
-                    startAngle, sweep - 6,
-                    false, paintEmpty
-                )
-            }
-            missileBtnRect = Rect(
-                btnX, btnY,
-                btnX + missileButtonBitmapScaled.width,
-                btnY + missileButtonBitmapScaled.height
-            )
 
             // Vẽ nút pause/play
             if (!isPaused) {
@@ -678,8 +1127,20 @@ package com.example.chickenshooter
                 return
             }
 
-            // Vẽ tên lửa nếu có
-            missile?.draw(canvas, missileExplosionBitmap)
+            // Vẽ tên lửa nếu có (chỉ khi không phải INTRO)
+            if (phase != Phase.INTRO) {
+                missile?.draw(canvas, missileExplosionBitmap)
+            }
+
+            // Story elements rendering
+            if (phase == Phase.INTRO) {
+                introManager.draw(canvas)
+            } else if (phase == Phase.RESCUE) {
+                rescueAvatar?.draw(canvas)
+            } else if (phase == Phase.DIALOG) {
+                dialogManager.draw(canvas)
+            }
+
             paint.textAlign = Paint.Align.LEFT
 
             // Vẽ hiệu ứng chuyển màn, game over, menu game over
@@ -688,7 +1149,7 @@ package com.example.chickenshooter
                 paint.color = Color.YELLOW
                 paint.textAlign = Paint.Align.CENTER
                 val msg = when {
-                    currentLevel.getLives() <= 0 -> "GAME OVER"
+                    ::currentLevel.isInitialized && currentLevel.getLives() <= 0 -> "GAME OVER"
                     level > maxLevel -> "CHÚC MỪNG BẠN!"
                     else -> "Level $level"
                 }
@@ -732,7 +1193,55 @@ package com.example.chickenshooter
             }
         }
 
+        /**
+         * Process input queue on GameThread - NON-BLOCKING
+         */
+        private fun processInputQueue() {
+            while (!inputQueue.isEmpty()) {
+                val event = inputQueue.poll() ?: break
+                
+                // Record input processing start
+                performanceMonitor.recordInputProcessed()
+                
+                when (event) {
+                    is InputEvent.NextDialogue -> {
+                        if (dialogManager.isActiveOrHasQueue()) {
+                            dialogManager.handleInput(event)
+                        }
+                    }
+                    is InputEvent.Touch -> {
+                        if (dialogManager.isActiveOrHasQueue()) {
+                            dialogManager.handleInput(event)
+                        }
+                    }
+                    is InputEvent.LongPress -> {
+                        if (dialogManager.isActiveOrHasQueue()) {
+                            dialogManager.handleInput(event)
+                        }
+                    }
+                }
+            }
+        }
+
         override fun onTouchEvent(event: MotionEvent): Boolean {
+            // Story input handling priority
+            if (phase == Phase.INTRO) {
+                return introManager.onTouch(event)
+            }
+
+            if (phase == Phase.DIALOG && dialogManager.isActiveOrHasQueue()) {
+                android.util.Log.d("GameView", "Enqueueing touch event for DialogManager in DIALOG phase")
+                // NON-BLOCKING: Enqueue touch event instead of processing directly
+                performanceMonitor.recordInput()
+                inputQueue.enqueue(InputEvent.Touch(event.x, event.y, event.action, event.eventTime))
+                return true
+            }
+
+            if (phase == Phase.RESCUE) {
+                // Consume input during rescue cutscene
+                return true
+            }
+
             // Xử lý bấm nút Pause/Play
             // Nếu đang show menu pause, chỉ xử lý các nút này
             if (showPauseMenu) {
@@ -774,7 +1283,7 @@ package com.example.chickenshooter
                     return true
                 }
             }
-            if (missileBtnRect != null && event.action == MotionEvent.ACTION_DOWN) {
+            if (missileBtnRect != null && event.action == MotionEvent.ACTION_DOWN && ::currentLevel.isInitialized) {
                 val x = event.x.toInt()
                 val y = event.y.toInt()
                 if (missileBtnRect!!.contains(x, y)) {
@@ -808,6 +1317,9 @@ package com.example.chickenshooter
                         isLevelChanging = false
                         levelChangeCounter = 0
                         gameOverCounter = 0
+                        phase = Phase.PLAYING // Reset phase
+                        rescueAvatar = null // Clear rescue avatar
+                        shouldShowStoryContent = false // Không hiện story content khi retry
 
                         startLevel(level)
 
@@ -862,16 +1374,37 @@ package com.example.chickenshooter
         ) : Thread() {
             var running = false
             override fun run() {
+                var frameCount = 0
                 while (running) {
-                    val canvas: Canvas? = surfaceHolder.lockCanvas()
-                    if (canvas != null) {
-                        synchronized(surfaceHolder) {
-                            gameView.update()
-                            gameView.draw(canvas)
+                    try {
+                        val canvas: Canvas? = surfaceHolder.lockCanvas()
+                        if (canvas != null) {
+                            synchronized(surfaceHolder) {
+                                gameView.update()
+                                gameView.draw(canvas)
+                            }
+                            surfaceHolder.unlockCanvasAndPost(canvas)
                         }
-                        surfaceHolder.unlockCanvasAndPost(canvas)
+                        
+                        // Record frame timing for performance monitoring
+                        performanceMonitor.recordFrame()
+                        
+                        frameCount++
+                        // Log performance every 5 seconds
+                        if (frameCount % 300 == 0) {
+                            val fps = performanceMonitor.getCurrentFPS()
+                            val latency = performanceMonitor.getAverageInputLatency()
+                            val isAcceptable = performanceMonitor.isPerformanceAcceptable()
+                            android.util.Log.d("GameThread", "Frame $frameCount, phase: ${gameView.phase}, FPS: $fps, Latency: ${latency}ms, Acceptable: $isAcceptable")
+                        }
+                        
+                        sleep(16)
+                    } catch (e: Exception) {
+                        android.util.Log.e("GameThread", "Error in game loop: ${e.message}")
+                        e.printStackTrace()
+                        // Emergency sleep to prevent tight loop
+                        sleep(100)
                     }
-                    sleep(16)
                 }
             }
         }

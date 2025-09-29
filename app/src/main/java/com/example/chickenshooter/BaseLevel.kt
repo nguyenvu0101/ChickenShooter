@@ -19,6 +19,9 @@ abstract class BaseLevel(
     open var pickedGunMode: GunMode? = null
     open fun canUseMissile(): Boolean = false
     open fun consumeManaForMissile() {}
+    
+    // --- Boss defeat callback ---
+    var onBossDefeated: (() -> Unit)? = null
     // --- Coins system ---
     protected val coins = mutableListOf<Coin>()
     var onCoinCollected: ((amount: Int) -> Unit)? = null
@@ -58,18 +61,12 @@ abstract class BaseLevel(
         }
     }
 
-    /** Lưu xu về hệ thống (local hoặc online) */
+    /** Lưu xu về hệ thống (chỉ offline) */
     fun saveCoinsToSystem() {
         val coinsEarned = coins.size.toLong()
-        val isOffline = UserRepoRTDB().isOffline(context)
-        if (isOffline) {
-            UserRepoRTDB().addOfflineCoins(context, coinsEarned)
-        } else {
-            val uid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
-            if (uid != null) {
-                UserRepoRTDB().addCoins(uid, coinsEarned)
-            }
-        }
+        val prefs = context.getSharedPreferences("game", Context.MODE_PRIVATE)
+        val currentCoins = prefs.getLong("coins", 0L)
+        prefs.edit().putLong("coins", currentCoins + coinsEarned).apply()
     }
 
     /** Vẽ xu */
@@ -135,4 +132,20 @@ abstract class BaseLevel(
     abstract fun reset()
     abstract fun getBackground(): Bitmap
     abstract fun getLives(): Int
+    
+    // Memory cleanup method
+    open fun cleanup() {
+        try {
+            android.util.Log.d("BaseLevel", "Cleaning up level resources...")
+            
+            // Clear collections
+            coins.clear()
+            
+            // Subclasses should override this to cleanup their specific resources
+            android.util.Log.d("BaseLevel", "Base level cleanup completed")
+        } catch (e: Exception) {
+            android.util.Log.e("BaseLevel", "Error during level cleanup: ${e.message}")
+            e.printStackTrace()
+        }
+    }
 }

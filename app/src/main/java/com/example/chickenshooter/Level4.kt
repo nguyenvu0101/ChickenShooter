@@ -80,8 +80,8 @@ class Level4(
     private val bossBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.boss_chicken)
     private val bossScaledBitmap = Bitmap.createScaledBitmap(
         bossBitmap,
-        bossBitmap.width * 3 / 5,
-        bossBitmap.height * 3 / 5,
+        bossBitmap.width * 3 / 20,
+        bossBitmap.height * 3 / 20,
         true
     )
 
@@ -354,6 +354,7 @@ class Level4(
 
             if (b.hp <= 0) {
                 isLevelFinished = true
+                onBossDefeated?.invoke() // Gọi callback khi boss bị đánh bại
             }
         }
 
@@ -460,4 +461,22 @@ class Level4(
     }
     override fun getBackground(): Bitmap = background
     override fun getLives(): Int = lives
+    
+    override fun cleanup() {
+        try {
+            super.cleanup()
+            android.util.Log.d("Level4", "Cleaning up Level4 specific resources...")
+            
+            chickens.clear()
+            swarms.clear()
+            items.clear()
+            eggs.clear()
+            boss = null
+            
+            android.util.Log.d("Level4", "Level4 cleanup completed")
+        } catch (e: Exception) {
+            android.util.Log.e("Level4", "Error during Level4 cleanup: ${e.message}")
+            e.printStackTrace()
+        }
+    }
 }

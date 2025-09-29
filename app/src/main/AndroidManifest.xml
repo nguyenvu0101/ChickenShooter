@@ -17,28 +17,18 @@
         <activity
             android:name=".CartActivity"
             android:exported="false" />
-        <!-- 1) Màn chọn chế độ -->
+        <!-- 1) Start Menu (Main entry point) -->
         <activity
-            android:name=".ModeSelectActivity"
+            android:name=".StartMenuActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.ChickenShooter">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity> <!-- 2) Login (Online) -->
-        <activity
-            android:name=".LoginActivity"
-            android:exported="false"
-            android:label="@string/app_name"
-            android:theme="@style/Theme.ChickenShooter" /> <!-- 3) Start Menu -->
-        <activity
-            android:name=".StartMenuActivity"
-            android:exported="false"
-            android:label="@string/app_name"
-            android:theme="@style/Theme.ChickenShooter" /> <!-- 4) Game -->
+        </activity>
+        <!-- 2) Game -->
         <activity
             android:name=".MainActivity"
             android:exported="false"
