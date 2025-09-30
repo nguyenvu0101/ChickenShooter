@@ -27,11 +27,19 @@ class Level2(
     private val chickenBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.chicken2)
     private val eggBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.egg)
     private val shields = mutableListOf<Shield>()
+    private val healthItems = mutableListOf<HealthItem>()
     private val shieldBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.shield_item)
+    private val healthItemBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.blood)
     private val scaledShieldBitmap = Bitmap.createScaledBitmap(
         shieldBitmap,
         (shieldBitmap.width * 0.07).toInt(),
         (shieldBitmap.height * 0.07).toInt(),
+        true
+    )
+    private val scaledHealthItemBitmap = Bitmap.createScaledBitmap(
+        healthItemBitmap,
+        (healthItemBitmap.width * 0.07).toInt(),
+        (healthItemBitmap.height * 0.07).toInt(),
         true
     )
 
@@ -201,6 +209,10 @@ class Level2(
                         if ((0..99).random() < 10) {
                             shields.add(Shield(chicken.x.toInt(), chicken.y.toInt(), scaledShieldBitmap, 5))
                         }
+                        // Drop health items
+                        if ((0..99).random() < 8) {
+                            healthItems.add(HealthItem(chicken.x.toInt(), chicken.y.toInt(), scaledHealthItemBitmap, 5))
+                        }
                         // Drop items
                         if ((0..99).random() < 10) {
                             val itemType = (0..2).random()
@@ -240,9 +252,11 @@ class Level2(
                     deadChickens = deadInSwarm,
                     items = items,
                     shields = shields,
+                    healthItems = healthItems,
                     manaBitmap = manaBitmap,
                     itemBitmaps = itemBitmaps,
                     scaledShieldBitmap = scaledShieldBitmap,
+                    scaledHealthItemBitmap = scaledHealthItemBitmap,
                     spawnCoin = ::spawnCoin
                 )
 
@@ -317,11 +331,13 @@ class Level2(
         }
         items.removeAll(collectedItems)
 
-        // Update coins, mana, shields
+        // Update coins, mana, shields, health items
         updateCoins()
         updateMana()
         shields.forEach { it.update() }
         shields.removeAll { it.y > context.resources.displayMetrics.heightPixels }
+        healthItems.forEach { it.update() }
+        healthItems.removeAll { it.y > context.resources.displayMetrics.heightPixels }
 
         // Collect shields
         val collectedShields = shields.filter { CollisionUtils.isColliding(it.getRect(), player.getRect()) }
@@ -329,6 +345,15 @@ class Level2(
             player.activateShield(6000) // Shield protection for 6 seconds
         }
         shields.removeAll(collectedShields)
+
+        // Collect health items
+        val collectedHealthItems = healthItems.filter { CollisionUtils.isColliding(it.getRect(), player.getRect()) }
+        for (healthItem in collectedHealthItems) {
+            if (lives < 3) { // Only heal if not at max lives
+                lives++
+            }
+        }
+        healthItems.removeAll(collectedHealthItems)
 
         // Boss logic
         boss?.let { b ->
@@ -393,6 +418,7 @@ class Level2(
         bullets.forEach { it.draw(canvas) }
         items.forEach { it.draw(canvas) }
         shields.forEach { it.draw(canvas) }
+        healthItems.forEach { it.draw(canvas) }
         player.draw(canvas)
         // Vẽ xu từ BaseLevel
         drawCoins(canvas)

@@ -387,15 +387,21 @@ class ChickenSwarm(
         deadChickens: List<Chicken>,
         items: MutableList<Item>,
         shields: MutableList<Shield>,
+        healthItems: MutableList<HealthItem>,
         manaBitmap: Bitmap,
         itemBitmaps: List<Bitmap>,
         scaledShieldBitmap: Bitmap,
+        scaledHealthItemBitmap: Bitmap,
         spawnCoin: (x: Int, y: Int, w: Int, h: Int) -> Unit
     ) {
         for (chicken in deadChickens) {
             // Drop shield 30%
             if ((0..99).random() < 30) {
                 shields.add(Shield(chicken.x.toInt(), chicken.y.toInt(), scaledShieldBitmap, 5))
+            }
+            // Drop health items 25%
+            if ((0..99).random() < 25) {
+                healthItems.add(HealthItem(chicken.x.toInt(), chicken.y.toInt(), scaledHealthItemBitmap, 5))
             }
             // Drop item 10%
             if ((0..99).random() < 10) {

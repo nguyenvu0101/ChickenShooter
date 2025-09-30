@@ -68,12 +68,16 @@ import kotlinx.coroutines.launch
         private var missileBtnRect: Rect? = null
 
         val shields = mutableListOf<Shield>()
+        val healthItems = mutableListOf<HealthItem>()
         // item rơi từ con gà
         private val itemBitmaps = listOf(
             BitmapFactory.decodeResource(resources, R.drawable.item_fast),
             BitmapFactory.decodeResource(resources, R.drawable.item_parallel),
             BitmapFactory.decodeResource(resources, R.drawable.item_spread)
         )
+        
+        // obj hồi máu
+        private val healthItemBitmap = BitmapFactory.decodeResource(resources, R.drawable.blood)
 
         private lateinit var player: Player
         private val bullets = mutableListOf<Bullet>()
