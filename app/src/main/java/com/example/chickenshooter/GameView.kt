@@ -25,7 +25,7 @@ import kotlinx.coroutines.launch
     }
 
     // Phase system cho story integration
-    private enum class Phase { INTRO, PLAYING, RESCUE, DIALOG }
+    private enum class Phase { INTRO, PLAYING, RESCUE, DIALOG, CONGRATULATIONS }
 
     // Story data structures
     data class LevelScript(val opening: DialogueScene, val ending: DialogueScene)
@@ -78,6 +78,12 @@ import kotlinx.coroutines.launch
         
         // obj hồi máu
         private val healthItemBitmap = BitmapFactory.decodeResource(resources, R.drawable.blood)
+        
+        // obj game over
+        private val gameOverBitmap = BitmapFactory.decodeResource(resources, R.drawable.game_over)
+        
+        // obj congratulations
+        private val congratulationsBitmap = BitmapFactory.decodeResource(resources, R.drawable.congratulations)
 
         private lateinit var player: Player
         private val bullets = mutableListOf<Bullet>()
@@ -85,7 +91,7 @@ import kotlinx.coroutines.launch
         // Movement variables for 4-directional smooth movement
         private var targetX = 0f
         private var targetY = 0f
-        private val movementSpeed = 45f // Increased from 8f to 12f for faster movement
+        private val movementSpeed = 45f // tốc độ bay
         private var isMoving = false
 
         // Sound effect variables
@@ -96,6 +102,7 @@ import kotlinx.coroutines.launch
         private var gunshotSoundId: Int = 0
         private var missileSoundId: Int = 0
         private var warningSoundId: Int = 0
+        private var congratulationsSoundId: Int = 0
 
         // Thêm biến trạng thái
         private var showPauseMenu = false
@@ -153,11 +160,16 @@ import kotlinx.coroutines.launch
         private var gameOverCounter = 0
         private val gameOverWait = 90
         private var isReturningToMenu = false
+        
+        // congratulations
+        private var congratulationsCounter = 0
+        private val congratulationsWait = 180 // 3 seconds at 60fps
 
         // menu game
         private var showGameOverMenu = false
         private var retryButtonRect: Rect? = null
         private var menuButtonRect: Rect? = null
+        private var exitGameButtonRect: Rect? = null
 
         // Pause
         private var isPaused = false
@@ -358,6 +370,7 @@ import kotlinx.coroutines.launch
             missileSoundId = soundPool.load(context, R.raw.tieng_bom_no, 1)
             borderSoundId = soundPool.load(context, R.raw.border, 1)
             warningSoundId = soundPool.load(context, R.raw.warning, 1)
+            congratulationsSoundId = soundPool.load(context, R.raw.congratulation, 1)
 
             // Initialize target positions for smooth movement
             targetX = centerX.toFloat()
@@ -646,6 +659,17 @@ import kotlinx.coroutines.launch
                 }
             }
         }
+        
+        private fun showCongratulations() {
+            android.util.Log.d("GameView", "Showing congratulations for level $level")
+            phase = Phase.CONGRATULATIONS
+            congratulationsCounter = 0
+            
+            // Play congratulations sound
+            if (isSoundOn) {
+                soundPool.play(congratulationsSoundId, 1f, 1f, 1, 0, 1f)
+            }
+        }
 
         fun update() {
             if (isPaused) return
@@ -705,7 +729,11 @@ import kotlinx.coroutines.launch
                     if (shouldShowStoryContent) {
                         phase = Phase.DIALOG
                         STORY[level]?.ending?.let { endingScene ->
-                            dialogManager.queueScene(endingScene)
+                            dialogManager.queueScene(endingScene) {
+                                // Callback when ending dialogue completes
+                                android.util.Log.d("GameView", "Ending dialogue completed (timeout), showing congratulations")
+                                showCongratulations()
+                            }
                             dialogManager.startIfAny()
                         }
                     } else {
@@ -726,7 +754,11 @@ import kotlinx.coroutines.launch
                         if (shouldShowStoryContent) {
                             android.util.Log.d("GameView", "Starting ending dialogue...")
                             STORY[level]?.ending?.let { endingScene ->
-                                dialogManager.queueScene(endingScene)
+                                dialogManager.queueScene(endingScene) {
+                                    // Callback when ending dialogue completes
+                                    android.util.Log.d("GameView", "Ending dialogue completed, showing congratulations")
+                                    showCongratulations()
+                                }
                                 dialogManager.startIfAny()
                             }
                             rescueAvatar = null
@@ -755,6 +787,21 @@ import kotlinx.coroutines.launch
                     phase = Phase.DIALOG
                 }
                 return // Pause gameplay while dialogues are showing
+            }
+            
+            // Handle congratulations phase
+            if (phase == Phase.CONGRATULATIONS) {
+                congratulationsCounter++
+                if (congratulationsCounter >= congratulationsWait) {
+                    // Move to next level or end game
+                    if (level < maxLevel) {
+                        phase = Phase.PLAYING
+                        startLevel(level + 1)
+                    } else {
+                        endGameAndReturnToMenu()
+                    }
+                }
+                return
             }
             
             // Additional safety check - if we're not in PLAYING phase but should be, and level is not ready
@@ -811,12 +858,12 @@ import kotlinx.coroutines.launch
                 val offset = 40
                 when (gunMode) {
                     GunMode.NORMAL, GunMode.FAST -> {
-                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2000, 90.0))
+                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 90.0))
                         if (isSoundOn) soundPool.play(gunshotSoundId, 1f, 1f, 1, 0, 1f)
                     }
 
                     GunMode.TRIPLE_PARALLEL -> {
-                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2000, 90.0))
+                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 90.0))
                         bullets.add(Bullet(center - offset, bulletY, bulletBitmap, 30, 2, 90.0))
                         bullets.add(Bullet(center + offset, bulletY, bulletBitmap, 30, 2, 90.0))
 
@@ -824,7 +871,7 @@ import kotlinx.coroutines.launch
                     }
 
                     GunMode.TRIPLE_SPREAD -> {
-                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2000, 90.0))
+                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 90.0))
                         bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 110.0))
                         bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 70.0))
                         if (isSoundOn) soundPool.play(gunshotSoundId, 1f, 1f, 1, 0, 1f)
@@ -963,8 +1010,7 @@ import kotlinx.coroutines.launch
             if (phase != Phase.INTRO && ::currentLevel.isInitialized) {
                 val currentMana = currentLevel.manaCount
                 val manaNeeded = currentLevel.manaNeededForMissile
-                
-                // MEMORY LEAK FIX: Cache life icon bitmap instead of creating new one every frame
+
                 if (lifeIconBitmap == null) {
                     lifeIconBitmap = Bitmap.createScaledBitmap(playerBitmap, 60, 60, true)
                 }
@@ -998,7 +1044,7 @@ import kotlinx.coroutines.launch
             val centerX = pauseBtnX + pauseBtnSize / 2
             val centerY = pauseBtnY + pauseBtnSize / 2
 
-            // Vẽ nút tên lửa/missile (chỉ khi không phải INTRO)
+            // Vẽ nút tên lửa/missile
             if (phase != Phase.INTRO && ::currentLevel.isInitialized) {
                 val currentMana = currentLevel.manaCount
                 val manaNeeded = currentLevel.manaNeededForMissile
@@ -1007,14 +1053,14 @@ import kotlinx.coroutines.launch
                 val btnY = height - missileButtonBitmapScaled.height - 40
                 canvas.drawBitmap(missileButtonBitmapScaled, btnX.toFloat(), btnY.toFloat(), null)
 
-                // Thông số vòng tròn mana cho tên lửa
+
                 val cx = btnX + missileButtonBitmapScaled.width / 2f
                 val cy = btnY + missileButtonBitmapScaled.height / 2f
                 val radius = missileButtonBitmapScaled.width / 2f + 16f
                 val manaStrokeWidth = 14f
                 val sweep = 360f / manaNeeded
 
-                // MEMORY LEAK FIX: Use cached paint objects with dynamic stroke width
+                //
                 manaFilledPaint.strokeWidth = manaStrokeWidth
                 manaEmptyPaint.strokeWidth = manaStrokeWidth
                 val paintFilled = manaFilledPaint
@@ -1143,6 +1189,20 @@ import kotlinx.coroutines.launch
                 rescueAvatar?.draw(canvas)
             } else if (phase == Phase.DIALOG) {
                 dialogManager.draw(canvas)
+            } else if (phase == Phase.CONGRATULATIONS) {
+                // Draw congratulations image scaled to fit screen
+                val scaleX = width.toFloat() / congratulationsBitmap.width
+                val scaleY = height.toFloat() / congratulationsBitmap.height
+                val scale = minOf(scaleX, scaleY) * 0.8f // 80% of screen size for better appearance
+                
+                val scaledWidth = (congratulationsBitmap.width * scale).toInt()
+                val scaledHeight = (congratulationsBitmap.height * scale).toInt()
+                
+                val congratulationsX = (width - scaledWidth) / 2f
+                val congratulationsY = (height - scaledHeight) / 2f
+                
+                val scaledBitmap = Bitmap.createScaledBitmap(congratulationsBitmap, scaledWidth, scaledHeight, true)
+                canvas.drawBitmap(scaledBitmap, congratulationsX, congratulationsY, null)
             }
 
             paint.textAlign = Paint.Align.LEFT
@@ -1153,19 +1213,27 @@ import kotlinx.coroutines.launch
                 paint.color = Color.YELLOW
                 paint.textAlign = Paint.Align.CENTER
                 val msg = when {
-                    ::currentLevel.isInitialized && currentLevel.getLives() <= 0 -> "GAME OVER"
+                    ::currentLevel.isInitialized && currentLevel.getLives() <= 0 -> {
+                        // Vẽ ảnh game over thay vì text
+                        val gameOverX = (width - gameOverBitmap.width) / 2f
+                        val gameOverY = (height - gameOverBitmap.height) / 2f
+                        canvas.drawBitmap(gameOverBitmap, gameOverX, gameOverY, null)
+                        null // Không vẽ text
+                    }
                     level > maxLevel -> "CHÚC MỪNG BẠN!"
                     else -> "Level $level"
                 }
-                canvas.drawText(msg, width / 2f, height / 2f, paint)
+                if (msg != null) {
+                    canvas.drawText(msg, width / 2f, height / 2f, paint)
+                }
                 paint.textAlign = Paint.Align.LEFT
             }
 
             if (isGameOver && showGameOverMenu) {
-                paint.textSize = 80f
-                paint.color = Color.RED
-                paint.textAlign = Paint.Align.CENTER
-                canvas.drawText("GAME OVER", width / 2f, height / 2f - 100, paint)
+                // Vẽ ảnh game over
+                val gameOverX = (width - gameOverBitmap.width) / 2f
+                val gameOverY = height / 2f - gameOverBitmap.height / 2f - 100f
+                canvas.drawBitmap(gameOverBitmap, gameOverX, gameOverY, null)
 
                 val btnWidth = 350
                 val btnHeight = 100
@@ -1173,6 +1241,7 @@ import kotlinx.coroutines.launch
                 val centerXBtn = width / 2
                 val retryY = height / 2 + 20
                 val menuY = retryY + btnHeight + btnSpacing
+                val exitY = menuY + btnHeight + btnSpacing
 
                 retryButtonRect = Rect(
                     centerXBtn - btnWidth / 2,
@@ -1184,6 +1253,7 @@ import kotlinx.coroutines.launch
                 canvas.drawRect(retryButtonRect!!, paint)
                 paint.color = Color.WHITE
                 paint.textSize = 52f
+                paint.textAlign = Paint.Align.CENTER
                 canvas.drawText("Chơi lại", centerXBtn.toFloat(), retryY + btnHeight / 2f + 18f, paint)
 
                 menuButtonRect =
@@ -1192,6 +1262,18 @@ import kotlinx.coroutines.launch
                 canvas.drawRect(menuButtonRect!!, paint)
                 paint.color = Color.WHITE
                 canvas.drawText("Menu", centerXBtn.toFloat(), menuY + btnHeight / 2f + 18f, paint)
+
+                // Nút thoát game
+                exitGameButtonRect = Rect(
+                    centerXBtn - btnWidth / 2,
+                    exitY,
+                    centerXBtn + btnWidth / 2,
+                    exitY + btnHeight
+                )
+                paint.color = Color.parseColor("#F44336")
+                canvas.drawRect(exitGameButtonRect!!, paint)
+                paint.color = Color.WHITE
+                canvas.drawText("Thoát game", centerXBtn.toFloat(), exitY + btnHeight / 2f + 18f, paint)
 
                 paint.textAlign = Paint.Align.LEFT
             }
@@ -1331,6 +1413,12 @@ import kotlinx.coroutines.launch
                     }
                     if (menuButtonRect?.contains(x, y) == true) {
                         endGameAndReturnToMenu()
+                        return true
+                    }
+                    if (exitGameButtonRect?.contains(x, y) == true) {
+                        // Thoát hoàn toàn khỏi ứng dụng
+                        val activity = context as? android.app.Activity
+                        activity?.finishAffinity()
                         return true
                     }
                 }

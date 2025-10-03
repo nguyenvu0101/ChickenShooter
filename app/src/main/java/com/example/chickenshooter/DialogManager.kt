@@ -44,6 +44,9 @@ class DialogManager(
     // Coroutine scope for typewriter effect
     private val typewriterScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     
+    // Callback for when all dialogues are complete
+    private var onAllDoneCallback: (() -> Unit)? = null
+    
     // Paint objects
     private val overlayPaint = Paint().apply {
         color = Color.argb(180, 0, 0, 0) // Nền tối mờ
@@ -95,6 +98,16 @@ class DialogManager(
             android.util.Log.d("DialogManager", "Scene queued with ${scene.lines.size} lines")
         } catch (e: Exception) {
             android.util.Log.e("DialogManager", "Error queueing scene: ${e.message}")
+        }
+    }
+    
+    fun queueScene(scene: DialogueScene, onComplete: () -> Unit) {
+        try {
+            queuedScenes.add(scene)
+            onAllDoneCallback = onComplete
+            android.util.Log.d("DialogManager", "Scene queued with callback and ${scene.lines.size} lines")
+        } catch (e: Exception) {
+            android.util.Log.e("DialogManager", "Error queueing scene with callback: ${e.message}")
         }
     }
     
@@ -466,6 +479,8 @@ class DialogManager(
         } else {
             // Tất cả scene đã hoàn thành
             android.util.Log.d("DialogManager", "All scenes completed")
+            onAllDoneCallback?.invoke()
+            onAllDoneCallback = null
         }
     }
     
