@@ -18,7 +18,7 @@ class Chicken(
 ) {
     private var tick = 0
     private var lastShotTime = 0L
-    private var shotInterval = Random.nextLong(2000, 5000) // 2–5 giây
+    private var shotInterval = Random.nextLong(8000, 12000) // 8–12 giây
     private var angle = 0f
     private var amplitude = Random.nextFloat() * 50 + 30 // 30–80
     private var frequency = Random.nextFloat() * 0.3f + 0.1f // 0.1–0.4
@@ -83,7 +83,7 @@ class Chicken(
         if (currentTime - lastShotTime > shotInterval && y in 0f..screenHeight.toFloat()) {
             shoot(playerX, playerY)
             lastShotTime = currentTime
-            shotInterval = Random.nextLong(5000, 11000) // reset random
+            shotInterval = Random.nextLong(10000, 18000) // reset random - 10-18 giây
         }
 
         // Cập nhật đạn (dùng iterator để tránh lag)
@@ -101,7 +101,7 @@ class Chicken(
         val centerX = x + bitmap.width / 2
         val centerY = y + bitmap.height
 
-        when (Random.nextInt(4)) {
+        when (Random.nextInt(3)) { // Reduced from 4 to 3 patterns to remove spread shot
             0 -> { // thẳng xuống
                 projectiles.add(ChickenProjectile(centerX, centerY, 0f, 8f, ProjectileType.SHIT))
             }
@@ -121,21 +121,7 @@ class Chicken(
                     )
                 }
             }
-            2 -> { // spread 3 viên
-                val baseSpeed = 7f
-                for (i in -1..1) {
-                    val angle = i * 0.3f
-                    projectiles.add(
-                        ChickenProjectile(
-                            centerX, centerY,
-                            sin(angle) * baseSpeed,
-                            cos(angle) * baseSpeed,
-                            ProjectileType.SHIT
-                        )
-                    )
-                }
-            }
-            3 -> { // bắn theo góc tới player
+            2 -> { // bắn theo góc tới player (moved from pattern 3)
                 val dx = playerX - centerX
                 val dy = playerY - centerY
                 val targetAngle = atan2(dy, dx) // fix: y trước, x sau

@@ -15,7 +15,7 @@ class BossChicken(
     private val screenWidth: Int,
     private val screenHeight: Int
 ) {
-    private val eggShootInterval = 1500L
+    private val eggShootInterval = 4000L // Increased from 1500L to 4000L (4 seconds)
     private var lastEggShootTime: Long = 0
     val maxHp: Int = hp
 
@@ -55,7 +55,7 @@ class BossChicken(
     }
 
     private fun shootEggs(eggs: MutableList<Egg>) {
-        val angles = listOf(60f, 70f, 80f, 90f, 100f, 110f, 120f)
+        val angles = listOf(75f, 90f, 105f) // Reduced from 7 angles to 3 angles
         for (angle in angles) {
             eggs.add(
                 Egg(
