@@ -6,24 +6,45 @@ import android.graphics.Rect
 import kotlin.math.*
 import kotlin.random.Random
 
+enum class MoveType {
+    DOWN,       // Thẳng xuống, đến gần player thì lên, dao động lên-xuống (spring)
+    SINE,       // Lượn sóng sin trái-phải khi xuống
+    ZIGZAG,     // Zigzag ngang khi xuống, tới gần player thì lên, dao động lên-xuống
+    V,          // Hình răng cưa: xếp xen kẽ cao thấp, lên xuống cùng biên độ và chu kỳ
+    SPIRAL,     // Xoắn ốc
+    FIGURE8,    // Hình số 8
+    BOUNCE      // Rơi xuống, đi ngang hết màn, sau đó đi lên
+}
+
 class Chicken(
     var x: Float,
     var y: Float,
     val bitmap: Bitmap,
     val speed: Float,
-    val moveType: Int,
+    val moveType: MoveType,
     var hp: Int,
     val screenWidth: Int,
     val screenHeight: Int
 ) {
     private var tick = 0
     private var lastShotTime = 0L
-    private var shotInterval = Random.nextLong(2000, 5000) // 2–5 giây
+    private var shotInterval = Random.nextLong(2500, 5000)
     private var angle = 0f
     private var amplitude = Random.nextFloat() * 50 + 30 // 30–80
     private var frequency = Random.nextFloat() * 0.3f + 0.1f // 0.1–0.4
-    private var originalX = x
+    private val originalX = x
+    private val originalY = y
     private var direction = if (Random.nextBoolean()) 1 else -1
+    private var hasShot = false
+
+    // Dùng cho kiểu lên xuống (spring)
+    private var phaseSpring = 1 // 1: lên, -1: xuống
+
+    // Dùng cho zigzag
+    private var zigzagDir = if (Random.nextBoolean()) 1 else -1
+
+    // Dùng cho bounce
+    private var bouncePhase = 0
 
     // Danh sách đạn
     val projectiles = mutableListOf<ChickenProjectile>()
@@ -32,56 +53,102 @@ class Chicken(
         tick++
         val currentTime = System.currentTimeMillis()
 
-        // Cập nhật vị trí
+        // Bắn: mỗi gà chỉ bắn 1 viên trong đời
+        if (!hasShot && y in 0f..screenHeight.toFloat()) {
+            shoot(playerX, playerY)
+            lastShotTime = currentTime
+            hasShot = true
+        }
+
         when (moveType) {
-            0 -> y += speed // thẳng xuống
-            1 -> { // sine
+            MoveType.DOWN -> {
+                // Lò xo lên xuống giữa minY và maxY (gần tới player)
+                val minY = 0f
+                val maxY = playerY - 120f
+                y += phaseSpring * speed
+                if (y < minY) {
+                    y = minY
+                    phaseSpring = 1
+                }
+                if (y > maxY) {
+                    y = maxY
+                    phaseSpring = -1
+                }
+            }
+            MoveType.SINE -> {
                 y += speed
                 x = originalX + sin(tick * frequency) * amplitude
             }
-            2 -> { // cosine
-                y += speed
-                x = originalX + cos(tick * frequency * 1.5f) * amplitude * 1.2f
+            MoveType.ZIGZAG -> {
+                // Zigzag ngang + lên xuống như lò xo
+                val minY = 0f
+                val maxY = playerY - 120f
+                y += phaseSpring * speed
+                x += zigzagDir * speed * 1.1f
+                if (x < 0f) {
+                    x = 0f
+                    zigzagDir = 1
+                }
+                if (x > screenWidth - bitmap.width) {
+                    x = screenWidth - bitmap.width.toFloat()
+                    zigzagDir = -1
+                }
+                if (y < minY) {
+                    y = minY
+                    phaseSpring = 1
+                }
+                if (y > maxY) {
+                    y = maxY
+                    phaseSpring = -1
+                }
             }
-            3 -> { // zigzag
-                y += speed
-                if (tick % 60 == 0) direction *= -1
-                x += direction * speed * 0.8f
+            MoveType.V -> {
+                // Cao thấp xen kẽ, lên xuống đồng bộ
+                val period = 120f
+                val amp = 60f
+                y = originalY + amp * sin((tick + (originalX % period)) * 0.045f)
             }
-            4 -> { // spiral
+            MoveType.SPIRAL -> {
                 y += speed * 0.7f
                 angle += 0.1f
                 x += cos(angle) * 3f
             }
-            5 -> { // erratic
-                y += speed
-                if (tick % 30 == 0) x += Random.nextFloat() * 40 - 20
-            }
-
-            7 -> { // figure-8
+            MoveType.FIGURE8 -> {
                 y += speed * 0.8f
-                val t = tick * 0.05f
+                val t = tick * 0.045f
                 x = originalX + sin(t) * amplitude + cos(t * 2) * amplitude * 0.5f
             }
-            8 -> { // bouncing
-                y += speed
-                x += direction * speed * 1.5f
-                if (x <= 0 || x >= screenWidth - bitmap.width) direction *= -1
+            MoveType.BOUNCE -> {
+                // Giai đoạn 1: rơi xuống gần đáy
+                val bottomY = screenHeight * 0.85f - bitmap.height
+                if (bouncePhase == 0 && y < bottomY) {
+                    y += speed
+                    x += direction * speed * 1.5f
+                    if (x <= 0 || x >= screenWidth - bitmap.width) direction *= -1
+                    if (y >= bottomY) {
+                        bouncePhase = 1
+                        direction = if (x < screenWidth / 2) 1 else -1
+                    }
+                } else if (bouncePhase == 1) {
+                    // Đi ngang về mép đối diện
+                    x += direction * speed * 1.5f
+                    if ((direction > 0 && x >= screenWidth - bitmap.width) ||
+                        (direction < 0 && x <= 0f)
+                    ) {
+                        bouncePhase = 2
+                    }
+                } else if (bouncePhase == 2) {
+                    // Đi lên, có thể lắc nhẹ
+                    y -= speed
+                    x += sin(tick * 0.07f) * 2.0f
+                }
             }
-            else -> y += speed
         }
 
-        // Giới hạn trong màn hình
+        // Giới hạn trong màn hình X (không giới hạn Y để gà có thể bay ra khỏi màn)
         x = x.coerceIn(0f, (screenWidth - bitmap.width).toFloat())
 
-        // Bắn đạn
-        if (currentTime - lastShotTime > shotInterval && y in 0f..screenHeight.toFloat()) {
-            shoot(playerX, playerY)
-            lastShotTime = currentTime
-            shotInterval = Random.nextLong(5000, 11000) // reset random
-        }
-
-        // Cập nhật đạn (dùng iterator để tránh lag)
+        // Cập nhật đạn
         val iterator = projectiles.iterator()
         while (iterator.hasNext()) {
             val projectile = iterator.next()
@@ -95,56 +162,11 @@ class Chicken(
     private fun shoot(playerX: Float, playerY: Float) {
         val centerX = x + bitmap.width / 2
         val centerY = y + bitmap.height
+        if (projectiles.isNotEmpty()) return // chỉ 1 viên mỗi con gà
 
-        when (Random.nextInt(4)) {
-            0 -> { // thẳng xuống
-                projectiles.add(ChickenProjectile(centerX, centerY, 0f, 8f, ProjectileType.SHIT))
-            }
-            1 -> { // hướng về player
-                val dx = playerX - centerX
-                val dy = playerY - centerY
-                val distance = sqrt(dx * dx + dy * dy)
-                if (distance > 0) {
-                    val speed = 6f
-                    projectiles.add(
-                        ChickenProjectile(
-                            centerX, centerY,
-                            (dx / distance) * speed,
-                            (dy / distance) * speed,
-                            ProjectileType.EGG
-                        )
-                    )
-                }
-            }
-            2 -> { // spread 3 viên
-                val baseSpeed = 7f
-                for (i in -1..1) {
-                    val angle = i * 0.3f
-                    projectiles.add(
-                        ChickenProjectile(
-                            centerX, centerY,
-                            sin(angle) * baseSpeed,
-                            cos(angle) * baseSpeed,
-                            ProjectileType.SHIT
-                        )
-                    )
-                }
-            }
-            3 -> { // bắn theo góc tới player
-                val dx = playerX - centerX
-                val dy = playerY - centerY
-                val targetAngle = atan2(dy, dx) // fix: y trước, x sau
-                val speed = 5f
-                projectiles.add(
-                    ChickenProjectile(
-                        centerX, centerY,
-                        cos(targetAngle) * speed,
-                        sin(targetAngle) * speed,
-                        ProjectileType.EGG
-                    )
-                )
-            }
-        }
+        // Luôn bắn thẳng xuống, cả SHIT và EGG đều bay thẳng
+        projectiles.add(ChickenProjectile(centerX, centerY, 0f, 8f, ProjectileType.SHIT))
+        projectiles.add(ChickenProjectile(centerX, centerY, 0f, 8f, ProjectileType.EGG))
     }
 
     fun getRect(): Rect = Rect(
@@ -157,7 +179,8 @@ class Chicken(
         projectiles.forEach { it.draw(canvas) }
     }
 
-    fun isOffScreen(): Boolean = y > screenHeight + bitmap.height
+    // Không cho gà tự biến mất khi ra khỏi màn hình
+    fun isOffScreen(): Boolean = false
 }
 
 enum class ProjectileType { SHIT, EGG }
@@ -172,9 +195,8 @@ class ChickenProjectile(
     companion object {
         private var eggBitmap: Bitmap? = null
         private var shitBitmap: Bitmap? = null
-        private const val PROJECTILE_SIZE = 50 // px
-        
-        // MEMORY LEAK FIX: Static paint objects to avoid allocations every frame
+        private const val PROJECTILE_SIZE = 50
+
         private val blackPaint = android.graphics.Paint().apply {
             color = android.graphics.Color.BLACK
         }
@@ -224,7 +246,6 @@ class ChickenProjectile(
         if (bitmap != null) {
             canvas.drawBitmap(bitmap, x - bitmap.width / 2, y - bitmap.height / 2, null)
         } else {
-            // MEMORY LEAK FIX: Use static paint objects instead of creating new ones every frame
             val paint = when (type) {
                 ProjectileType.SHIT -> blackPaint
                 ProjectileType.EGG -> whitePaint
