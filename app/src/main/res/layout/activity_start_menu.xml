@@ -206,5 +206,15 @@
         android:layout_gravity="end|top"
         android:layout_margin="18dp"
         android:elevation="10dp" />
-
+    <!-- NÚT BẢNG XẾP HẠNG -->
+    <ImageButton
+        android:id="@+id/btnLeaderboard"
+        android:layout_width="54dp"
+        android:layout_height="54dp"
+        android:layout_gravity="start|top"
+        android:layout_margin="18dp"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:elevation="10dp"
+        android:scaleType="centerInside"
+        android:src="@drawable/leaderboard" />
 </FrameLayout>

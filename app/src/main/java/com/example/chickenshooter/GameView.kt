@@ -651,6 +651,10 @@ import kotlinx.coroutines.launch
         fun endGameAndReturnToMenu() {
             val prefs = context.getSharedPreferences("game", Context.MODE_PRIVATE)
             prefs.edit().putLong("coins", localCoin.toLong()).apply()
+
+            val coinsThisGame = (localCoin - coinBeforePlay).coerceAtLeast(0) // Phòng trường hợp âm
+            LeaderboardUtils.saveScore(context, coinsThisGame)
+
             mediaPlayer?.release()
             mediaPlayer = null
             thread.running = false
@@ -1049,7 +1053,7 @@ import kotlinx.coroutines.launch
 
             // Vẽ nút pause/play bên trái chữ xu
             val pauseBtnSize = 48f
-            val pauseBtnX = coinTextX - pauseBtnSize - 170f
+            val pauseBtnX = coinTextX - pauseBtnSize - 200f
             val pauseBtnY = coinTextY - pauseBtnSize + 8f
             pauseButtonRect = Rect(
                 pauseBtnX.toInt(),

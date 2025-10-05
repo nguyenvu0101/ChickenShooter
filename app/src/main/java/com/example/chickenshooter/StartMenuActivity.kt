@@ -28,6 +28,7 @@ class StartMenuActivity : AppCompatActivity() {
     private lateinit var etName: EditText
     private lateinit var btnSaveName: Button
     private lateinit var btnCart: ImageButton // Giỏ hàng
+    private lateinit var btnLeaderboard: ImageButton // Bảng xếp hạng
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,8 +41,15 @@ class StartMenuActivity : AppCompatActivity() {
         val plane1 = findViewById<ImageView>(R.id.plane1Img)
         val plane2 = findViewById<ImageView>(R.id.plane2Img)
 
-        // Tham chiếu giỏ hàng
+        // Tham chiếu giỏ hàng và bxh
         btnCart = findViewById(R.id.btnCart)
+        btnLeaderboard = findViewById(R.id.btnLeaderboard)
+
+        // Bắt sự kiện mở bảng xếp hạng
+        btnLeaderboard.setOnClickListener {
+            val intent = Intent(this, LeaderboardActivity::class.java)
+            startActivity(intent)
+        }
 
         // Khởi tạo mặc định
         selectedBgView = bg1
@@ -178,7 +186,6 @@ class StartMenuActivity : AppCompatActivity() {
             selectedPlane = R.drawable.player
         }
     }
-
 
     private fun toast(msg: String) =
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
