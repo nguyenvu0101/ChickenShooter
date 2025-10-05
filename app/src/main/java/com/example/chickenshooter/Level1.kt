@@ -10,6 +10,7 @@ import com.example.chickenshooter.*
 import com.example.chickenshooter.utils.CollisionUtils
 import com.example.chickenshooter.R
 import com.example.chickenshooter.utils.SpriteUtils
+import kotlin.math.abs
 
 class Level1(
     context: Context,
@@ -77,7 +78,7 @@ class Level1(
         coinBitmap.height + 5,
         true
     )
-
+    private val allProjectiles = mutableListOf<ChickenProjectile>()
     internal val chickens = mutableListOf<Chicken>()
     private val shields = mutableListOf<Shield>()
     private val healthItems = mutableListOf<HealthItem>()
@@ -98,7 +99,8 @@ class Level1(
 
     private var levelTimer = 0
     private val levelDuration = 20 * 60
-
+    private var waveTimer = 0
+    private val waveInterval = 120 // số frame cho mỗi đợt (3 giây nếu 60fps)
     override var pickedGunMode: GunMode? = null
 
     override fun update(bullets: MutableList<Bullet>) {
@@ -106,7 +108,13 @@ class Level1(
 
         scrollBackground?.update()
         levelTimer++
-
+        waveTimer++
+        if (waveTimer >= waveInterval && !isBossSpawned) {
+            val pattern = wavePatterns[waveIndex % wavePatterns.size]
+            spawnWave(pattern)
+            waveIndex++
+            waveTimer = 0
+        }
         // Spawn boss sau khi hết thời gian
         if (!isBossSpawned && levelTimer >= levelDuration) {
             boss = BossChicken(
@@ -124,12 +132,12 @@ class Level1(
         }
 
         // --- SPAWN GÀ THEO ĐỢT, LẶP LẠI ---
-        // Spawn wave mới khi hết quái, cho đến khi boss ra
-        if (!isBossSpawned && chickens.isEmpty()) {
-            val pattern = wavePatterns[waveIndex % wavePatterns.size]
-            spawnWave(pattern)
-            waveIndex++
-        }
+//        // Spawn wave mới khi hết quái, cho đến khi boss ra
+//        if (!isBossSpawned && chickens.isEmpty()) {
+//            val pattern = wavePatterns[waveIndex % wavePatterns.size]
+//            spawnWave(pattern)
+//            waveIndex++
+//        }
 
 
         // Update chickens
@@ -140,16 +148,29 @@ class Level1(
         }
 // Kiểm tra va chạm giữa ChickenProjectile và Player
         for (chicken in chickens) {
-            val hitProjectiles = chicken.projectiles.filter {
-                CollisionUtils.isColliding(it.getRect(), player.getRect())
+            chicken.update(playerCenterX, playerCenterY)
+            // Chuyển tất cả projectiles của gà này sang allProjectiles
+            allProjectiles.addAll(chicken.projectiles)
+            chicken.projectiles.clear() // Xóa trong gà để không bị add lại ở frame sau
+        }
+        val hitProjectiles = allProjectiles.filter {
+            CollisionUtils.isColliding(it.getRect(), player.getRect())
+        }
+        for (projectile in hitProjectiles) {
+            if (!player.hasShield) {
+                lives--
+                player.hit(playerExplosionFrames)
             }
-            for (projectile in hitProjectiles) {
-                if (!player.hasShield) {
-                    lives--
-                    player.hit(playerExplosionFrames)
-                }
+        }
+        allProjectiles.removeAll(hitProjectiles)
+
+        val it = allProjectiles.iterator()
+        while (it.hasNext()) {
+            val proj = it.next()
+            proj.update()
+            if (proj.y > context.resources.displayMetrics.heightPixels) {
+                it.remove()
             }
-            chicken.projectiles.removeAll(hitProjectiles)
         }
         // Bullet - Chicken collision
         val deadChickens = mutableListOf<Chicken>()
@@ -273,25 +294,93 @@ class Level1(
      */
     private fun spawnWave(moveType: MoveType) {
         val numChickens = 8
-        val availableWidth = context.resources.displayMetrics.widthPixels - scaledChickenBitmap.width
+        val screenW = context.resources.displayMetrics.widthPixels
+        val screenH = context.resources.displayMetrics.heightPixels
+        val availableWidth = screenW - scaledChickenBitmap.width
         val spacing = if (numChickens > 1)
             availableWidth.toFloat() / (numChickens - 1)
-        else
-            0f
-        for (i in 0 until numChickens) {
-            val x = i.toFloat() * spacing
-            chickens.add(
-                Chicken(
-                    x = x,
-                    y = 0f,
-                    bitmap = scaledChickenBitmap,
-                    speed = chickenSpeed,
-                    moveType = moveType,
-                    hp = chickenHp,
-                    screenWidth = context.resources.displayMetrics.widthPixels,
-                    screenHeight = context.resources.displayMetrics.heightPixels
-                )
-            )
+        else 0f
+
+        // Chọn đội hình dựa trên waveIndex (hoặc random nếu thích)
+        val formationType = waveIndex % 4
+        when (formationType) {
+            0 -> { // HÀNG NGANG ĐỀU
+                for (i in 0 until numChickens) {
+                    val x = i * spacing
+                    chickens.add(
+                        Chicken(
+                            x = x,
+                            y = 0f,
+                            bitmap = scaledChickenBitmap,
+                            speed = chickenSpeed,
+                            moveType = moveType,
+                            hp = chickenHp,
+                            screenWidth = screenW,
+                            screenHeight = screenH
+                        )
+                    )
+                }
+            }
+            1 -> { // HÌNH CHỮ V NHỌN, ĐẦY ĐỦ 2 GÓC
+                val mid = (numChickens - 1) / 2f
+                val vHeight = 200f // Độ cao chữ V, tăng số này cho V cao nhọn hơn
+                for (i in 0 until numChickens) {
+                    val x = i * spacing // Trải đều từ trái sang phải, luôn đủ 2 bên
+                    val dx = abs(i - mid)
+                    // Tỉ lệ nhọn: càng gần giữa càng cao, càng xa càng thấp
+                    val y = dx / mid * vHeight // Góc ngoài cùng y=Vmax, giữa y=0
+                    chickens.add(
+                        Chicken(
+                            x = x,
+                            y = y,
+                            bitmap = scaledChickenBitmap,
+                            speed = chickenSpeed,
+                            moveType = moveType,
+                            hp = chickenHp,
+                            screenWidth = screenW,
+                            screenHeight = screenH
+                        )
+                    )
+                }
+            }
+            2 -> { // DẠNG ZIGZAG
+                for (i in 0 until numChickens) {
+                    val x = i * spacing
+                    val y = if (i % 2 == 0) 0f else 50f
+                    chickens.add(
+                        Chicken(
+                            x = x,
+                            y = y,
+                            bitmap = scaledChickenBitmap,
+                            speed = chickenSpeed,
+                            moveType = moveType,
+                            hp = chickenHp,
+                            screenWidth = screenW,
+                            screenHeight = screenH
+                        )
+                    )
+                }
+            }
+            3 -> { // HÌNH SIN ĐẦU (gà xuất hiện như sóng sin)
+                val amplitude = 60f
+                val freq = Math.PI / numChickens
+                for (i in 0 until numChickens) {
+                    val x = i * spacing
+                    val y = amplitude * (1 + Math.sin(i * freq)).toFloat()
+                    chickens.add(
+                        Chicken(
+                            x = x,
+                            y = y,
+                            bitmap = scaledChickenBitmap,
+                            speed = chickenSpeed,
+                            moveType = moveType,
+                            hp = chickenHp,
+                            screenWidth = screenW,
+                            screenHeight = screenH
+                        )
+                    )
+                }
+            }
         }
     }
 
@@ -307,6 +396,9 @@ class Level1(
         drawCoins(canvas)
         drawMana(canvas)
         eggs.forEach { it.draw(canvas) }
+        for (proj in allProjectiles) {
+            proj.draw(canvas)
+        }
         boss?.draw(canvas)
         boss?.let { b ->
             val barWidth = canvas.width * 2 / 3

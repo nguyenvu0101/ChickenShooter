@@ -76,8 +76,18 @@ class Chicken(
                 }
             }
             MoveType.SINE -> {
-                y += speed
+                val minY = 0f
+                val maxY = screenHeight - bitmap.height - 50f
+                y += phaseSpring * speed        // Thêm dòng này thay vì y += speed
                 x = originalX + sin(tick * frequency) * amplitude
+                if (y < minY) {
+                    y = minY
+                    phaseSpring = 1
+                }
+                if (y > maxY) {
+                    y = maxY
+                    phaseSpring = -1
+                }
             }
             MoveType.ZIGZAG -> {
                 // Zigzag ngang + lên xuống như lò xo
@@ -103,20 +113,51 @@ class Chicken(
                 }
             }
             MoveType.V -> {
-                // Cao thấp xen kẽ, lên xuống đồng bộ
+                // Nếu muốn cũng lên-xuống mãi thì sửa như SINE:
+                val minY = 0f
+                val maxY = screenHeight - bitmap.height - 50f
+                y += phaseSpring * speed
                 val period = 120f
                 val amp = 60f
-                y = originalY + amp * sin((tick + (originalX % period)) * 0.045f)
+                x = originalX + amp * sin((tick + (originalY % period)) * 0.045f)
+                if (y < minY) {
+                    y = minY
+                    phaseSpring = 1
+                }
+                if (y > maxY) {
+                    y = maxY
+                    phaseSpring = -1
+                }
             }
             MoveType.SPIRAL -> {
-                y += speed * 0.7f
+                val minY = 0f
+                val maxY = screenHeight - bitmap.height - 50f
+                y += phaseSpring * speed * 0.7f
                 angle += 0.1f
                 x += cos(angle) * 3f
+                if (y < minY) {
+                    y = minY
+                    phaseSpring = 1
+                }
+                if (y > maxY) {
+                    y = maxY
+                    phaseSpring = -1
+                }
             }
             MoveType.FIGURE8 -> {
-                y += speed * 0.8f
+                val minY = 0f
+                val maxY = screenHeight - bitmap.height - 50f
+                y += phaseSpring * speed * 0.8f
                 val t = tick * 0.045f
                 x = originalX + sin(t) * amplitude + cos(t * 2) * amplitude * 0.5f
+                if (y < minY) {
+                    y = minY
+                    phaseSpring = 1
+                }
+                if (y > maxY) {
+                    y = maxY
+                    phaseSpring = -1
+                }
             }
             MoveType.BOUNCE -> {
                 // Giai đoạn 1: rơi xuống gần đáy
@@ -153,7 +194,7 @@ class Chicken(
         while (iterator.hasNext()) {
             val projectile = iterator.next()
             projectile.update()
-            if (projectile.y > screenHeight || projectile.y < 0) {
+            if (projectile.y > screenHeight) {
                 iterator.remove()
             }
         }
@@ -164,9 +205,12 @@ class Chicken(
         val centerY = y + bitmap.height
         if (projectiles.isNotEmpty()) return // chỉ 1 viên mỗi con gà
 
-        // Luôn bắn thẳng xuống, cả SHIT và EGG đều bay thẳng
-        projectiles.add(ChickenProjectile(centerX, centerY, 0f, 8f, ProjectileType.SHIT))
-        projectiles.add(ChickenProjectile(centerX, centerY, 0f, 8f, ProjectileType.EGG))
+        if ((0..99).random() < 40) {
+            // 50/50 EGG hoặc SHIT
+            val type = if (Random.nextBoolean()) ProjectileType.EGG else ProjectileType.SHIT
+            projectiles.add(ChickenProjectile(centerX, centerY, 0f, 8f, type))
+        }
+        // Còn lại 65% không bắn gì cả
     }
 
     fun getRect(): Rect = Rect(
