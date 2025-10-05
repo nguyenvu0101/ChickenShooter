@@ -345,7 +345,11 @@ import kotlinx.coroutines.launch
                     }
                 }
             }
-            
+            mediaPlayer?.let {
+                if (it.isPlaying) it.stop()
+                it.release()
+            }
+            mediaPlayer = null
             while (retry) {
                 try {
                     thread.join()
@@ -649,6 +653,21 @@ import kotlinx.coroutines.launch
             prefs.edit().putLong("coins", localCoin.toLong()).apply()
             mediaPlayer?.release()
             mediaPlayer = null
+            thread.running = false
+            post {
+                val activity = context as? android.app.Activity
+                if (activity != null) {
+                    val intent = android.content.Intent(activity, StartMenuActivity::class.java)
+                    activity.startActivity(intent)
+                    activity.finish()
+                }
+            }
+            mediaPlayer?.let {
+                if (it.isPlaying) it.stop()
+                it.release()
+            }
+            mediaPlayer = null
+
             thread.running = false
             post {
                 val activity = context as? android.app.Activity

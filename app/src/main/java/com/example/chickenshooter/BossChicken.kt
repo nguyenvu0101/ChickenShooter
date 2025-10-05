@@ -55,7 +55,7 @@ class BossChicken(
     }
 
     private fun shootEggs(eggs: MutableList<Egg>) {
-        val angles = listOf(60f, 70f, 80f, 90f, 100f, 110f, 120f)
+        val angles = listOf(60f, 75f , 90f, 105f, 120f)
         for (angle in angles) {
             eggs.add(
                 Egg(

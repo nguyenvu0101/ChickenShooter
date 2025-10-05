@@ -148,7 +148,7 @@ class Level1(
             if (spawnCooldown >= spawnInterval) {
                 val randomX = (0..(context.resources.displayMetrics.widthPixels - scaledChickenBitmap.width)).random()
                 // Mở rộng moveType để sử dụng các pattern mới (0-8)
-                val moveType = (0..8).random()
+                val moveType = listOf(0, 1, 2, 3, 4, 5, 7, 8).random()
                 val chickenSpeed = Random.nextFloat() * 3f + 2f // từ 2.0 đến 5.0
 
                 chickens.add(Chicken(

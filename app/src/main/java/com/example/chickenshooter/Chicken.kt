@@ -57,12 +57,7 @@ class Chicken(
                 y += speed
                 if (tick % 30 == 0) x += Random.nextFloat() * 40 - 20
             }
-            6 -> { // follow
-                y += speed
-                val targetX = playerX - bitmap.width / 2
-                val diffX = targetX - x
-                x += diffX * 0.02f
-            }
+
             7 -> { // figure-8
                 y += speed * 0.8f
                 val t = tick * 0.05f
