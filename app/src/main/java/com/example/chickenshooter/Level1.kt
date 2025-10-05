@@ -87,7 +87,7 @@ class Level1(
     private var isBossSpawned = false
 
     // --- WAVE LOGIC ---
-    private val wavePatterns = listOf(MoveType.DOWN, MoveType.SINE, MoveType.ZIGZAG)
+    private val wavePatterns = listOf(MoveType.BOUNCE, MoveType.SINE, MoveType.ZIGZAG)
     private var waveIndex = 0
     private var spawningWave = false
 
@@ -124,13 +124,13 @@ class Level1(
         }
 
         // --- SPAWN GÀ THEO ĐỢT, LẶP LẠI ---
-        if (!isBossSpawned && chickens.isEmpty() && !spawningWave) {
+        // Spawn wave mới khi hết quái, cho đến khi boss ra
+        if (!isBossSpawned && chickens.isEmpty()) {
             val pattern = wavePatterns[waveIndex % wavePatterns.size]
-            spawningWave = true
             spawnWave(pattern)
             waveIndex++
-            spawningWave = false
         }
+
 
         // Update chickens
         val playerCenterX = player.x + player.getRect().width() / 2f
@@ -199,12 +199,19 @@ class Level1(
         items.removeAll(collectedItems)
 
         // Update coins, mana, shields, health items
+        // Update coins, mana, shields, health items, and gun items
         updateCoins()
         updateMana()
+
+        items.forEach { it.update() }   // 🟢 thêm dòng này
+        items.removeAll { it.y > context.resources.displayMetrics.heightPixels }
+
         shields.forEach { it.update() }
         shields.removeAll { it.y > context.resources.displayMetrics.heightPixels }
+
         healthItems.forEach { it.update() }
         healthItems.removeAll { it.y > context.resources.displayMetrics.heightPixels }
+
 
         // Collect shields
         val collectedShields = shields.filter { CollisionUtils.isColliding(it.getRect(), player.getRect()) }
