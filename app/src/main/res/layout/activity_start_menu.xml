@@ -82,8 +82,21 @@
                 android:textAllCaps="false"
                 android:elevation="2dp"/>
 
+            <Button
+                android:id="@+id/btnChangeName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="10dp"
+                android:backgroundTint="#FF9800"
+                android:text="Đổi tên"
+                android:textColor="@android:color/white"
+                android:textStyle="bold"
+                android:textAllCaps="false"
+                android:elevation="2dp"
+                android:visibility="gone"/>
 
-            <!-- Chọn Background -->
+
+            <!-- Chọn Background - ẨN -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -95,14 +108,16 @@
                 android:shadowColor="#000"
                 android:shadowDx="0"
                 android:shadowDy="1"
-                android:shadowRadius="2"/>
+                android:shadowRadius="2"
+                android:visibility="gone"/>
 
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:gravity="center"
                 android:orientation="horizontal"
-                android:layout_marginBottom="18dp">
+                android:layout_marginBottom="18dp"
+                android:visibility="gone">
 
                 <ImageView
                     android:id="@+id/bg1Img"

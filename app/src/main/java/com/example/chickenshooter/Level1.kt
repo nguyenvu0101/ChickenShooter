@@ -65,7 +65,7 @@ class Level1(
         scaledChickenBitmap.height * 4 / 5,
         true
     )
-    private val bossBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.boss_chicken)
+    private val bossBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.boss_chicken1)
     private val bossScaledBitmap = Bitmap.createScaledBitmap(
         bossBitmap,
         bossBitmap.width * 3 / 20,
@@ -98,7 +98,7 @@ class Level1(
     private var isLevelFinished = false
 
     private var levelTimer = 0
-    private val levelDuration = 20 * 60
+    private val levelDuration = 1 * 60
     private var waveTimer = 0
     private val waveInterval = 120 // số frame cho mỗi đợt (3 giây nếu 60fps)
     override var pickedGunMode: GunMode? = null
@@ -384,7 +384,7 @@ class Level1(
         }
     }
 
-    override fun draw(canvas: Canvas, bullets: List<Bullet>) {
+    override fun draw(canvas: Canvas, bullets: List<Bullet>, backgroundY: Float) {
         scrollBackground?.draw(canvas)
         player.draw(canvas)
         chickens.forEach { it.draw(canvas) }
@@ -427,6 +427,8 @@ class Level1(
     }
 
     override fun isCompleted(): Boolean = isLevelFinished
+    
+    override fun isBossSpawned(): Boolean = isBossSpawned
 
     override fun reset() {
         chickens.clear()

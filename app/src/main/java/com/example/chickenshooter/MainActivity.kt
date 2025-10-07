@@ -6,12 +6,11 @@ import androidx.appcompat.app.AppCompatActivity
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Lấy id background và id máy bay (player) người chơi đã chọn từ Intent
-        val backgroundId = intent.getIntExtra("backgroundId", R.drawable.background)
+        // Lấy id máy bay (player) người chơi đã chọn từ Intent
         val planeId = intent.getIntExtra("planeId", R.drawable.player)
 
-        // Khởi tạo GameView với background và máy bay đã chọn
-        val gameView = GameView(this, backgroundId, planeId)
+        // Khởi tạo GameView với máy bay đã chọn (background sẽ tự động theo level)
+        val gameView = GameView(this, planeId)
         setContentView(gameView)
     }
 }

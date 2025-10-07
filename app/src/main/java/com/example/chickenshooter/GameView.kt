@@ -30,7 +30,7 @@ import kotlinx.coroutines.launch
     // Story data structures
     data class LevelScript(val opening: DialogueScene, val ending: DialogueScene)
 
-    class GameView(context: Context, private val backgroundId: Int, planeId: Int) :
+    class GameView(context: Context, planeId: Int) :
         SurfaceView(context), SurfaceHolder.Callback {
 
         private val thread: GameThread
@@ -141,6 +141,17 @@ import kotlinx.coroutines.launch
         private var level = 1
         private val maxLevel = 4
         private lateinit var currentLevel: BaseLevel
+        
+        // Auto background selection based on level
+        private fun getBackgroundForLevel(level: Int): Int {
+            return when (level) {
+                1 -> R.drawable.background
+                2 -> R.drawable.background2
+                3 -> R.drawable.background3
+                4 -> R.drawable.background4
+                else -> R.drawable.background
+            }
+        }
 
         // Chế độ bắn
         private var gunMode = GunMode.NORMAL
@@ -150,20 +161,49 @@ import kotlinx.coroutines.launch
         private val autoShootIntervalNormal = 10
         private val autoShootIntervalFast = 5
 
-        // Cấu hình chuyển level
-        private var isLevelChanging = false
-        private var levelChangeCounter = 0
-        private val levelChangeDuration = 90
-
+        // Background scrolling system
+        private var backgroundY = 0f
+        private var isBackgroundScrolling = true
+        private var backgroundScrollSpeed = 2f
+        
+        // Transition system thay thế delay cứng
+        private var isTransitioning = false
+        private var transitionProgress = 0f
+        private var transitionSpeed = 0.02f
+        private var transitionType = TransitionType.NORMAL
+        
+        enum class TransitionType {
+            NORMAL, BOSS_ENCOUNTER, PLANE_LAUNCH, LEVEL_CHANGE
+        }
+        
+        // Boss encounter system
+        private var bossEncountered = false
+        private var bossDefeated = false
+        
+        // Plane launch animation
+        private var isPlaneLaunching = false
+        private var planeLaunchSpeed = 8f
+        private var planeLaunchAcceleration = 0.5f
+        private var currentPlaneSpeed = 0f
+        
+        // Boss fly away animation
+        private var isBossFlyingAway = false
+        private var bossFlyAwaySpeed = 6f
+        private var bossFlyAwayAcceleration = 0.3f
+        private var currentBossSpeed = 0f
+        private var bossFlyAwayCounter = 0
+        private val bossFlyAwayDuration = 60 // 1 giây at 60fps
+        
+        // Final congratulations (màn cuối)
+        private var showFinalCongratulations = false
+        private var finalCongratulationsCounter = 0
+        private val finalCongratulationsWait = 300 // 5 giây at 60fps
+        
         // game over
         private var isGameOver = false
         private var gameOverCounter = 0
         private val gameOverWait = 90
         private var isReturningToMenu = false
-        
-        // congratulations
-        private var congratulationsCounter = 0
-        private val congratulationsWait = 180 // 3 seconds at 60fps
 
         // menu game
         private var showGameOverMenu = false
@@ -178,6 +218,188 @@ import kotlinx.coroutines.launch
         // Coins
         private var localCoin = 0
         private var coinBeforePlay = 0
+
+        // Background scrolling methods
+        private fun updateBackgroundScrolling() {
+            if (isBackgroundScrolling) {
+                backgroundY += backgroundScrollSpeed
+                if (backgroundY >= height) {
+                    backgroundY = 0f
+                }
+            }
+        }
+        
+        private fun stopBackgroundScrolling() {
+            isBackgroundScrolling = false
+        }
+        
+        private fun resumeBackgroundScrolling() {
+            isBackgroundScrolling = true
+        }
+        
+        private fun checkBossEncounter() {
+            if (::currentLevel.isInitialized && currentLevel.isBossSpawned() && !bossEncountered) {
+                bossEncountered = true
+                stopBackgroundScrolling()
+                transitionType = TransitionType.BOSS_ENCOUNTER
+                android.util.Log.d("GameView", "Boss encountered! Background scrolling stopped.")
+            }
+            
+            // Đảm bảo background không cuộn khi boss đang bị bắn
+            if (::currentLevel.isInitialized && currentLevel.isBossSpawned() && !bossDefeated) {
+                if (isBackgroundScrolling) {
+                    stopBackgroundScrolling()
+                    android.util.Log.d("GameView", "Boss is being fought! Background scrolling stopped.")
+                }
+            }
+        }
+        
+        private fun updatePlaneLaunchAnimation() {
+            if (isPlaneLaunching) {
+                currentPlaneSpeed += planeLaunchAcceleration
+                player.y -= (planeLaunchSpeed + currentPlaneSpeed).toInt()
+                
+                // Check if plane has left screen
+                if (player.y < -playerBitmap.height) {
+                    isPlaneLaunching = false
+                    currentPlaneSpeed = 0f
+                    // Transition to next level
+                    if (level < maxLevel) {
+                        startLevel(level + 1)
+                    } else {
+                        // Màn cuối - hiển thị congratulations
+                        showFinalCongratulations()
+                    }
+                }
+            }
+        }
+        
+        private fun startPlaneLaunchAnimation() {
+            isPlaneLaunching = true
+            currentPlaneSpeed = 0f
+            transitionType = TransitionType.PLANE_LAUNCH
+            // Đảm bảo background không cuộn khi plane launch
+            stopBackgroundScrolling()
+            android.util.Log.d("GameView", "Starting plane launch animation")
+        }
+        
+        private fun startBossFlyAwayAnimation() {
+            android.util.Log.d("GameView", "Starting boss fly away animation for level $level")
+            isBossFlyingAway = true
+            currentBossSpeed = 0f
+            bossFlyAwayCounter = 0
+            transitionType = TransitionType.BOSS_ENCOUNTER
+        }
+        
+        private fun updateBossFlyAwayAnimation() {
+            if (isBossFlyingAway) {
+                currentBossSpeed += bossFlyAwayAcceleration
+                bossFlyAwayCounter++
+                
+                // Move boss up and out of screen
+                if (::currentLevel.isInitialized) {
+                    when (currentLevel) {
+                        is Level1 -> {
+                            val level = currentLevel as Level1
+                            level.boss?.let { boss ->
+                                boss.y -= (bossFlyAwaySpeed + currentBossSpeed).toInt()
+                            }
+                        }
+                        is Level2 -> {
+                            val level = currentLevel as Level2
+                            level.boss?.let { boss ->
+                                boss.y -= (bossFlyAwaySpeed + currentBossSpeed).toInt()
+                            }
+                        }
+                        is Level3 -> {
+                            val level = currentLevel as Level3
+                            level.boss?.let { boss ->
+                                boss.y -= (bossFlyAwaySpeed + currentBossSpeed).toInt()
+                            }
+                        }
+                    }
+                }
+                
+                // Check if boss has left screen or animation duration reached
+                if (bossFlyAwayCounter >= bossFlyAwayDuration) {
+                    isBossFlyingAway = false
+                    currentBossSpeed = 0f
+                    bossFlyAwayCounter = 0
+                    // Start plane launch animation
+                    startPlaneLaunchAnimation()
+                }
+            }
+        }
+        
+        private fun showFinalCongratulations() {
+            android.util.Log.d("GameView", "Showing final congratulations for completing all levels!")
+            showFinalCongratulations = true
+            finalCongratulationsCounter = 0
+            
+            // Play congratulations sound
+            if (isSoundOn) {
+                soundPool.play(congratulationsSoundId, 1f, 1f, 1, 0, 1f)
+            }
+        }
+        
+        private fun drawPlaneLaunchEffects(canvas: Canvas) {
+            val paint = Paint()
+            
+            // Draw speed lines behind plane
+            paint.color = Color.WHITE
+            paint.strokeWidth = 3f
+            paint.alpha = 150
+            
+            val lineCount = 20
+            for (i in 0 until lineCount) {
+                val x = (width * i / lineCount).toFloat()
+                val y1 = (player.y + playerBitmap.height + (i * 10)).toFloat()
+                val y2 = (y1 + 30).toFloat()
+                canvas.drawLine(x, y1, x, y2, paint)
+            }
+            
+            // Draw trail particles
+            paint.color = Color.CYAN
+            paint.alpha = 100
+            for (i in 0 until 10) {
+                val particleX = player.x + (Math.random() * playerBitmap.width).toFloat()
+                val particleY = (player.y + playerBitmap.height + (i * 15)).toFloat()
+                canvas.drawCircle(particleX, particleY, 3f, paint)
+            }
+        }
+        
+        private fun drawFinalCongratulations(canvas: Canvas) {
+            // Draw black background first
+            val backgroundPaint = Paint()
+            backgroundPaint.color = Color.BLACK
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), backgroundPaint)
+            
+            // Draw congratulations image scaled to fit screen
+            val scaleX = width.toFloat() / congratulationsBitmap.width
+            val scaleY = height.toFloat() / congratulationsBitmap.height
+            val scale = minOf(scaleX, scaleY) * 0.8f // 80% of screen size for better appearance
+            
+            val scaledWidth = (congratulationsBitmap.width * scale).toInt()
+            val scaledHeight = (congratulationsBitmap.height * scale).toInt()
+            
+            val congratulationsX = (width - scaledWidth) / 2f
+            val congratulationsY = (height - scaledHeight) / 2f
+            
+            val scaledBitmap = Bitmap.createScaledBitmap(congratulationsBitmap, scaledWidth, scaledHeight, true)
+            canvas.drawBitmap(scaledBitmap, congratulationsX, congratulationsY, null)
+            
+            // Draw "Tap to continue" text
+            val paint = Paint()
+            paint.color = Color.WHITE
+            paint.textSize = 48f
+            paint.textAlign = Paint.Align.CENTER
+            paint.setShadowLayer(4f, 2f, 2f, Color.BLACK)
+            
+            val textY = congratulationsY + scaledHeight + 80f
+            canvas.drawText("Chạm để tiếp tục", width / 2f, textY, paint)
+            
+            android.util.Log.d("GameView", "Drawing final congratulations: scale=$scale, size=${scaledWidth}x${scaledHeight}, pos=(${congratulationsX}, ${congratulationsY})")
+        }
 
         // Memory management method
         private fun cleanupPreviousLevel() {
@@ -469,6 +691,7 @@ import kotlinx.coroutines.launch
                 // 3. Khởi tạo màn chơi theo level như cũ - with error handling
                 try {
                     android.util.Log.d("GameView", "Creating Level $level...")
+                    val backgroundId = getBackgroundForLevel(level)
                     currentLevel = when (level) {
                     1 -> {
                         android.util.Log.d("GameView", "Creating Level1 instance...")
@@ -523,8 +746,24 @@ import kotlinx.coroutines.launch
             gunMode = GunMode.NORMAL
             gunModeTimer = 0
             autoShootCounter = 0
-            isLevelChanging = true
-            levelChangeCounter = 0
+            
+            // Reset transition states
+            isTransitioning = false
+            transitionProgress = 0f
+            transitionType = TransitionType.NORMAL
+            bossEncountered = false
+            bossDefeated = false
+            isPlaneLaunching = false
+            currentPlaneSpeed = 0f
+            isBossFlyingAway = false
+            currentBossSpeed = 0f
+            bossFlyAwayCounter = 0
+            showFinalCongratulations = false
+            finalCongratulationsCounter = 0
+            
+            // Resume background scrolling for new level
+            resumeBackgroundScrolling()
+            backgroundY = 0f
 
             // Preload and start opening dialogue when story content is enabled
             if (shouldShowStoryContent) {
@@ -623,12 +862,12 @@ import kotlinx.coroutines.launch
                             android.util.Log.d("GameView", "RescueAvatar created successfully")
                         } else {
                             // Skip rescue animation and dialogue for subsequent playthroughs
-                            android.util.Log.d("GameView", "Skipping story content, moving to next level")
+                            android.util.Log.d("GameView", "Skipping story content, starting boss fly away")
+                            bossDefeated = true
                             if (level < maxLevel) {
-                                phase = Phase.PLAYING
-                                startLevel(level + 1)
+                                startBossFlyAwayAnimation()
                             } else {
-                                endGameAndReturnToMenu()
+                                startPlaneLaunchAnimation()
                             }
                         }
                     } catch (e: Exception) {
@@ -683,16 +922,6 @@ import kotlinx.coroutines.launch
             }
         }
         
-        private fun showCongratulations() {
-            android.util.Log.d("GameView", "Showing congratulations for level $level")
-            phase = Phase.CONGRATULATIONS
-            congratulationsCounter = 0
-            
-            // Play congratulations sound
-            if (isSoundOn) {
-                soundPool.play(congratulationsSoundId, 1f, 1f, 1, 0, 1f)
-            }
-        }
 
         fun update() {
             if (isPaused) return
@@ -749,25 +978,30 @@ import kotlinx.coroutines.launch
                     android.util.Log.w("GameView", "Rescue animation timeout! Force completing...")
                     rescueAvatar = null
                     rescueTimeout = 0
-                    if (shouldShowStoryContent) {
-                        phase = Phase.DIALOG
-                        STORY[level]?.ending?.let { endingScene ->
-                            dialogManager.queueScene(endingScene) {
-                                // Callback when ending dialogue completes
-                                android.util.Log.d("GameView", "Ending dialogue completed (timeout), showing congratulations")
-                                showCongratulations()
+                        if (shouldShowStoryContent) {
+                            phase = Phase.DIALOG
+                            STORY[level]?.ending?.let { endingScene ->
+                                dialogManager.queueScene(endingScene) {
+                                    // Callback when ending dialogue completes
+                                    android.util.Log.d("GameView", "Ending dialogue completed (timeout), starting boss fly away")
+                                    bossDefeated = true
+                                    if (level < maxLevel) {
+                                        startBossFlyAwayAnimation()
+                                    } else {
+                                        startPlaneLaunchAnimation()
+                                    }
+                                }
+                                dialogManager.startIfAny()
                             }
-                            dialogManager.startIfAny()
-                        }
-                    } else {
-                        // Skip to next level
-                        if (level < maxLevel) {
-                            phase = Phase.PLAYING
-                            startLevel(level + 1)
                         } else {
-                            endGameAndReturnToMenu()
+                            // Skip to boss fly away or plane launch
+                            bossDefeated = true
+                            if (level < maxLevel) {
+                                startBossFlyAwayAnimation()
+                            } else {
+                                startPlaneLaunchAnimation()
+                            }
                         }
-                    }
                     return
                 }
                 
@@ -779,8 +1013,13 @@ import kotlinx.coroutines.launch
                             STORY[level]?.ending?.let { endingScene ->
                                 dialogManager.queueScene(endingScene) {
                                     // Callback when ending dialogue completes
-                                    android.util.Log.d("GameView", "Ending dialogue completed, showing congratulations")
-                                    showCongratulations()
+                                    android.util.Log.d("GameView", "Ending dialogue completed, starting boss fly away")
+                                    bossDefeated = true
+                                    if (level < maxLevel) {
+                                        startBossFlyAwayAnimation()
+                                    } else {
+                                        startPlaneLaunchAnimation()
+                                    }
                                 }
                                 dialogManager.startIfAny()
                             }
@@ -788,14 +1027,14 @@ import kotlinx.coroutines.launch
                             phase = Phase.DIALOG
                             android.util.Log.d("GameView", "Switched to DIALOG phase")
                         } else {
-                            // Skip ending dialogue, go directly to next level
-                            android.util.Log.d("GameView", "Skipping ending dialogue...")
+                            // Skip ending dialogue, start boss fly away or plane launch
+                            android.util.Log.d("GameView", "Skipping ending dialogue, starting boss fly away...")
                             rescueAvatar = null
+                            bossDefeated = true
                             if (level < maxLevel) {
-                                phase = Phase.PLAYING
-                                startLevel(level + 1)
+                                startBossFlyAwayAnimation()
                             } else {
-                                endGameAndReturnToMenu()
+                                startPlaneLaunchAnimation()
                             }
                         }
                 }
@@ -812,17 +1051,24 @@ import kotlinx.coroutines.launch
                 return // Pause gameplay while dialogues are showing
             }
             
-            // Handle congratulations phase
-            if (phase == Phase.CONGRATULATIONS) {
-                congratulationsCounter++
-                if (congratulationsCounter >= congratulationsWait) {
-                    // Move to next level or end game
-                    if (level < maxLevel) {
-                        phase = Phase.PLAYING
-                        startLevel(level + 1)
-                    } else {
-                        endGameAndReturnToMenu()
-                    }
+            // Handle boss fly away animation
+            if (isBossFlyingAway) {
+                updateBossFlyAwayAnimation()
+                return
+            }
+            
+            // Handle plane launch animation
+            if (isPlaneLaunching) {
+                updatePlaneLaunchAnimation()
+                return
+            }
+            
+            // Handle final congratulations
+            if (showFinalCongratulations) {
+                finalCongratulationsCounter++
+                if (finalCongratulationsCounter >= finalCongratulationsWait) {
+                    // End game after showing congratulations
+                    endGameAndReturnToMenu()
                 }
                 return
             }
@@ -833,13 +1079,12 @@ import kotlinx.coroutines.launch
                 return
             }
 
-            // delay chuyênr level
-            if (isLevelChanging) {
-                levelChangeCounter++
-                if (levelChangeCounter >= levelChangeDuration) {
-                    isLevelChanging = false
-                }
-                return
+            // Check for boss encounter first
+            checkBossEncounter()
+            
+            // Background scrolling update (chỉ cuộn khi không có boss)
+            if (!bossEncountered || bossDefeated) {
+                updateBackgroundScrolling()
             }
 
             // nếu hết mạng thì mở game over - check if currentLevel exists first
@@ -856,12 +1101,15 @@ import kotlinx.coroutines.launch
                 }
                 return
             }
-            // nếu end màn thì mở màn mới hoặc end game - check if currentLevel exists first
+            // nếu end màn thì trigger boss fly away hoặc plane launch - check if currentLevel exists first
             if (::currentLevel.isInitialized && currentLevel.isCompleted()) {
-                if (level < maxLevel) {
-                    startLevel(level + 1)
-                } else {
-                    isLevelChanging = true
+                if (!bossDefeated) {
+                    bossDefeated = true
+                    if (level < maxLevel) {
+                        startBossFlyAwayAnimation()
+                    } else {
+                        startPlaneLaunchAnimation()
+                    }
                 }
                 return
             }
@@ -881,12 +1129,12 @@ import kotlinx.coroutines.launch
                 val offset = 40
                 when (gunMode) {
                     GunMode.NORMAL, GunMode.FAST -> {
-                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 90.0))
+                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 200, 90.0))
                         if (isSoundOn) soundPool.play(gunshotSoundId, 1f, 1f, 1, 0, 1f)
                     }
 
                     GunMode.TRIPLE_PARALLEL -> {
-                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 90.0))
+                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 200, 90.0))
                         bullets.add(Bullet(center - offset, bulletY, bulletBitmap, 30, 2, 90.0))
                         bullets.add(Bullet(center + offset, bulletY, bulletBitmap, 30, 2, 90.0))
 
@@ -894,7 +1142,7 @@ import kotlinx.coroutines.launch
                     }
 
                     GunMode.TRIPLE_SPREAD -> {
-                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 90.0))
+                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 200, 90.0))
                         bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 110.0))
                         bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 70.0))
                         if (isSoundOn) soundPool.play(gunshotSoundId, 1f, 1f, 1, 0, 1f)
@@ -1024,7 +1272,8 @@ import kotlinx.coroutines.launch
             
             // Vẽ gameplay chỉ khi không phải INTRO phase và currentLevel đã được khởi tạo
             if (phase != Phase.INTRO && ::currentLevel.isInitialized) {
-                currentLevel.draw(canvas, bullets)
+                // Draw background with scrolling effect
+                currentLevel.draw(canvas, bullets, backgroundY)
             }
 
             val paint = uiPaint
@@ -1212,44 +1461,19 @@ import kotlinx.coroutines.launch
                 rescueAvatar?.draw(canvas)
             } else if (phase == Phase.DIALOG) {
                 dialogManager.draw(canvas)
-            } else if (phase == Phase.CONGRATULATIONS) {
-                // Draw congratulations image scaled to fit screen
-                val scaleX = width.toFloat() / congratulationsBitmap.width
-                val scaleY = height.toFloat() / congratulationsBitmap.height
-                val scale = minOf(scaleX, scaleY) * 0.8f // 80% of screen size for better appearance
-                
-                val scaledWidth = (congratulationsBitmap.width * scale).toInt()
-                val scaledHeight = (congratulationsBitmap.height * scale).toInt()
-                
-                val congratulationsX = (width - scaledWidth) / 2f
-                val congratulationsY = (height - scaledHeight) / 2f
-                
-                val scaledBitmap = Bitmap.createScaledBitmap(congratulationsBitmap, scaledWidth, scaledHeight, true)
-                canvas.drawBitmap(scaledBitmap, congratulationsX, congratulationsY, null)
+            } else if (isPlaneLaunching) {
+                // Draw plane launch effects
+                drawPlaneLaunchEffects(canvas)
             }
 
             paint.textAlign = Paint.Align.LEFT
 
-            // Vẽ hiệu ứng chuyển màn, game over, menu game over
-            if (isLevelChanging) {
-                paint.textSize = 80f
-                paint.color = Color.YELLOW
-                paint.textAlign = Paint.Align.CENTER
-                val msg = when {
-                    ::currentLevel.isInitialized && currentLevel.getLives() <= 0 -> {
-                        // Vẽ ảnh game over thay vì text
-                        val gameOverX = (width - gameOverBitmap.width) / 2f
-                        val gameOverY = (height - gameOverBitmap.height) / 2f
-                        canvas.drawBitmap(gameOverBitmap, gameOverX, gameOverY, null)
-                        null // Không vẽ text
-                    }
-                    level > maxLevel -> "CHÚC MỪNG BẠN!"
-                    else -> "Level $level"
-                }
-                if (msg != null) {
-                    canvas.drawText(msg, width / 2f, height / 2f, paint)
-                }
-                paint.textAlign = Paint.Align.LEFT
+            // Vẽ hiệu ứng game over
+            if (isGameOver && !showGameOverMenu) {
+                // Vẽ ảnh game over thay vì text
+                val gameOverX = (width - gameOverBitmap.width) / 2f
+                val gameOverY = (height - gameOverBitmap.height) / 2f
+                canvas.drawBitmap(gameOverBitmap, gameOverX, gameOverY, null)
             }
 
             if (isGameOver && showGameOverMenu) {
@@ -1300,6 +1524,11 @@ import kotlinx.coroutines.launch
 
                 paint.textAlign = Paint.Align.LEFT
             }
+            
+            // Draw final congratulations on top of everything
+            if (showFinalCongratulations) {
+                drawFinalCongratulations(canvas)
+            }
         }
 
         /**
@@ -1348,6 +1577,15 @@ import kotlinx.coroutines.launch
 
             if (phase == Phase.RESCUE) {
                 // Consume input during rescue cutscene
+                return true
+            }
+            
+            // Handle final congratulations touch
+            if (showFinalCongratulations) {
+                if (event.action == MotionEvent.ACTION_DOWN) {
+                    // Skip to end game
+                    endGameAndReturnToMenu()
+                }
                 return true
             }
 
@@ -1423,8 +1661,6 @@ import kotlinx.coroutines.launch
                     if (retryButtonRect?.contains(x, y) == true) {
                         showGameOverMenu = false
                         isGameOver = false
-                        isLevelChanging = false
-                        levelChangeCounter = 0
                         gameOverCounter = 0
                         phase = Phase.PLAYING // Reset phase
                         rescueAvatar = null // Clear rescue avatar

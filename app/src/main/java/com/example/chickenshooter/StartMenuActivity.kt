@@ -14,10 +14,8 @@ import androidx.appcompat.app.AlertDialog
 
 class StartMenuActivity : AppCompatActivity() {
 
-    private var selectedBackground = R.drawable.background
     private var selectedPlane = R.drawable.player
 
-    private lateinit var selectedBgView: ImageView
     private lateinit var selectedPlaneView: ImageView
 
     private val prefs by lazy { getSharedPreferences("game", MODE_PRIVATE) }
@@ -27,6 +25,7 @@ class StartMenuActivity : AppCompatActivity() {
     private lateinit var tvCoins: TextView
     private lateinit var etName: EditText
     private lateinit var btnSaveName: Button
+    private lateinit var btnChangeName: Button
     private lateinit var btnCart: ImageButton // Giỏ hàng
     private lateinit var btnLeaderboard: ImageButton // Bảng xếp hạng
 
@@ -36,8 +35,6 @@ class StartMenuActivity : AppCompatActivity() {
 
         prefs.edit().putString("current_plane", "player").apply()
 
-        val bg1 = findViewById<ImageView>(R.id.bg1Img)
-        val bg2 = findViewById<ImageView>(R.id.bg2Img)
         val plane1 = findViewById<ImageView>(R.id.plane1Img)
         val plane2 = findViewById<ImageView>(R.id.plane2Img)
 
@@ -52,23 +49,8 @@ class StartMenuActivity : AppCompatActivity() {
         }
 
         // Khởi tạo mặc định
-        selectedBgView = bg1
         selectedPlaneView = plane1
-        selectedBgView.setBackgroundResource(R.drawable.bg_selected_border)
         selectedPlaneView.setBackgroundResource(R.drawable.bg_selected_border)
-
-        bg1.setOnClickListener {
-            selectedBackground = R.drawable.background
-            selectedBgView.background = null
-            bg1.setBackgroundResource(R.drawable.bg_selected_border)
-            selectedBgView = bg1
-        }
-        bg2.setOnClickListener {
-            selectedBackground = R.drawable.background2
-            selectedBgView.background = null
-            bg2.setBackgroundResource(R.drawable.bg_selected_border)
-            selectedBgView = bg2
-        }
         plane1.setOnClickListener {
             selectedPlane = R.drawable.player
             selectedPlaneView.background = null
@@ -88,10 +70,10 @@ class StartMenuActivity : AppCompatActivity() {
         tvCoins = findViewById(R.id.tvCoins)
         etName = findViewById(R.id.etName)
         btnSaveName = findViewById(R.id.btnSaveName)
+        btnChangeName = findViewById(R.id.btnChangeName)
 
         findViewById<Button>(R.id.startBtn).setOnClickListener {
             val intent = Intent(this, MainActivity::class.java)
-            intent.putExtra("backgroundId", selectedBackground)
             intent.putExtra("planeId", selectedPlane)
             startActivity(intent)
         }
@@ -104,7 +86,24 @@ class StartMenuActivity : AppCompatActivity() {
             }
             setOfflineName(inputName)
             tvPlayerName.text = "Tên: $inputName"
+            
+            // Ẩn form nhập tên và hiển thị tên đã lưu
+            etName.visibility = View.GONE
+            btnSaveName.visibility = View.GONE
+            tvPlayerName.visibility = View.VISIBLE
+            btnChangeName.visibility = View.VISIBLE
+            
             toast("Đã lưu tên")
+        }
+        
+        btnChangeName.setOnClickListener {
+            // Hiển thị form nhập tên để đổi tên
+            etName.visibility = View.VISIBLE
+            btnSaveName.visibility = View.VISIBLE
+            tvPlayerName.visibility = View.GONE
+            btnChangeName.visibility = View.GONE
+            etName.setText("")
+            etName.requestFocus()
         }
 
         // Sự kiện mở giỏ hàng
@@ -132,6 +131,22 @@ class StartMenuActivity : AppCompatActivity() {
         val (name, coins) = getOfflineProfile()
         tvPlayerName.text = "Tên: $name"
         tvCoins.text = "Xu: $coins"
+        
+        // Kiểm tra xem đã có tên chưa
+        val hasName = prefs.getString("display_name", null) != null
+        if (hasName) {
+            // Đã có tên, ẩn form nhập tên và hiển thị nút đổi tên
+            etName.visibility = View.GONE
+            btnSaveName.visibility = View.GONE
+            tvPlayerName.visibility = View.VISIBLE
+            btnChangeName.visibility = View.VISIBLE
+        } else {
+            // Chưa có tên, hiển thị form nhập tên
+            etName.visibility = View.VISIBLE
+            btnSaveName.visibility = View.VISIBLE
+            tvPlayerName.visibility = View.GONE
+            btnChangeName.visibility = View.GONE
+        }
     }
 
     // OFFLINE

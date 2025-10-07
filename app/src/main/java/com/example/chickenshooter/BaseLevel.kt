@@ -127,11 +127,12 @@ abstract class BaseLevel(
 
     // --- Interface cho các Level kế thừa ---
     abstract fun update(bullets: MutableList<Bullet>)
-    abstract fun draw(canvas: Canvas, bullets: List<Bullet>)
+    abstract fun draw(canvas: Canvas, bullets: List<Bullet>, backgroundY: Float = 0f)
     abstract fun isCompleted(): Boolean
     abstract fun reset()
     abstract fun getBackground(): Bitmap
     abstract fun getLives(): Int
+    abstract fun isBossSpawned(): Boolean
     
     // Memory cleanup method
     open fun cleanup() {

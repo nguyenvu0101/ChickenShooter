@@ -21,7 +21,7 @@ class Level4(
 ) : BaseLevel(context, player, bulletBitmap, itemBitmaps, coinBmp) {
 
     private val background = BitmapFactory.decodeResource(context.resources, backgroundId)
-    private val chickenBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.chicken1)
+    private val chickenBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.chicken4)
     private val eggBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.egg)
     private val shieldBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.shield_item)
     private val healthItemBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.blood)
@@ -64,7 +64,7 @@ class Level4(
         scaledChickenBitmap.height * 4 / 5,
         true
     )
-    private val bossBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.boss_chicken)
+    private val bossBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.boss_chicken4)
     private val bossScaledBitmap = Bitmap.createScaledBitmap(
         bossBitmap,
         bossBitmap.width * 3 / 20,
@@ -97,7 +97,7 @@ class Level4(
     private var isLevelFinished = false
 
     private var levelTimer = 0
-    private val levelDuration = 20 * 60
+    private val levelDuration = 5 * 60
 
     override var pickedGunMode: GunMode? = null
 
@@ -317,7 +317,7 @@ class Level4(
         }
     }
 
-    override fun draw(canvas: Canvas, bullets: List<Bullet>) {
+    override fun draw(canvas: Canvas, bullets: List<Bullet>, backgroundY: Float) {
         scrollBackground?.draw(canvas)
         player.draw(canvas)
         chickens.forEach { it.draw(canvas) }
@@ -357,6 +357,8 @@ class Level4(
     }
 
     override fun isCompleted(): Boolean = isLevelFinished
+    
+    override fun isBossSpawned(): Boolean = isBossSpawned
 
     override fun reset() {
         chickens.clear()
