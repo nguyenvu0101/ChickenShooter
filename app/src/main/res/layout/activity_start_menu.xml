@@ -95,7 +95,6 @@
                 android:elevation="2dp"
                 android:visibility="gone"/>
 
-
             <!-- Chọn Background - ẨN -->
             <TextView
                 android:layout_width="wrap_content"
@@ -153,44 +152,34 @@
                 android:shadowDy="1"
                 android:shadowRadius="2"/>
 
-            <!-- Máy bay đang chọn, mặc định ẨN -->
-            <ImageView
-                android:id="@+id/planePreviewImg"
-                android:layout_width="96dp"
-                android:layout_height="96dp"
-                android:layout_gravity="center"
-                android:layout_marginBottom="10dp"
-                android:src="@drawable/player"
-                android:scaleType="centerInside"
-                android:visibility="gone" />
-
-            <!-- 2 máy bay nhỏ để chọn -->
+            <!-- PHẦN CHỌN MÁY BAY SWIPE + BỆ ĐỠ -->
             <LinearLayout
-                android:id="@+id/planeSelectLayout"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="15dp"
                 android:gravity="center"
-                android:orientation="horizontal">
+                android:orientation="vertical"
+                android:layout_marginBottom="15dp">
 
-                <ImageView
-                    android:id="@+id/plane1Img"
-                    android:layout_width="72dp"
-                    android:layout_height="72dp"
-                    android:layout_marginEnd="20dp"
-                    android:src="@drawable/player"
-                    android:scaleType="centerInside"
-                    android:background="?android:attr/selectableItemBackground"
-                    android:padding="4dp"/>
+                <!-- Máy bay swipe (ViewPager2) -->
+                <androidx.viewpager2.widget.ViewPager2
+                    android:id="@+id/planeViewPager"
+                    android:layout_width="130dp"
+                    android:layout_height="130dp"
+                    android:clipToPadding="false"
+                    android:overScrollMode="never"
+                    android:layout_marginBottom="0dp"
+                    android:paddingBottom="-60dp"
+                    android:layout_gravity="center"/>
 
+                <!-- Bệ đỡ to hơn và sát máy bay hơn -->
                 <ImageView
-                    android:id="@+id/plane2Img"
-                    android:layout_width="72dp"
-                    android:layout_height="72dp"
-                    android:src="@drawable/player2_v2"
-                    android:scaleType="centerInside"
-                    android:background="?android:attr/selectableItemBackground"
-                    android:padding="4dp"/>
+                    android:id="@+id/planeBase"
+                    android:layout_width="120dp"
+                    android:layout_height="120dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/plane_base"
+                    android:scaleType="fitCenter"
+                    android:layout_marginTop="-60dp"/>
             </LinearLayout>
 
             <!-- Nút bắt đầu -->
