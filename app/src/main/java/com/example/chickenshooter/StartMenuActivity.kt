@@ -9,14 +9,20 @@ import android.view.View
 
 class StartMenuActivity : AppCompatActivity() {
 
-    // Danh sách máy bay, mỗi máy bay có 2 ảnh: menu (góc chéo), game (góc thẳng)
-    private val planes = listOf(
-        Plane(R.drawable.player_demo, R.drawable.player),
-        Plane(R.drawable.player3_demo, R.drawable.player3
-        ),
-        // Thêm máy bay khác nếu có (R.drawable.player3_menu, R.drawable.player3_game), ...
+    // Máy bay mặc định luôn có
+    private val defaultPlanes = listOf(
+        Plane("player", R.drawable.player_demo, R.drawable.player),
+        Plane("player2_v2", R.drawable.player3_demo, R.drawable.player3)
     )
 
+    // Máy bay unlock được (mua trong giỏ hàng)
+    private val unlockPlanes = listOf(
+        Plane("player_cart1", R.drawable.player_cart1_demo, R.drawable.player_cart1),
+        Plane("player_cart2", R.drawable.player_cart2_demo, R.drawable.player_cart2)
+        // ... thêm máy bay mới tại đây nếu muốn
+    )
+
+    private var planes: List<Plane> = defaultPlanes // sẽ cập nhật lại trong onResume
     private var selectedIndex = 0 // máy bay đang chọn
 
     private val prefs by lazy { getSharedPreferences("game", MODE_PRIVATE) }
@@ -35,7 +41,6 @@ class StartMenuActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_start_menu)
 
-        // Khởi tạo ViewPager2 chọn máy bay (swipe trái/phải)
         planeViewPager = findViewById(R.id.planeViewPager)
         planeViewPager.adapter = PlanePagerAdapter(planes)
         planeViewPager.setCurrentItem(selectedIndex, false)
@@ -43,10 +48,11 @@ class StartMenuActivity : AppCompatActivity() {
             override fun onPageSelected(position: Int) {
                 selectedIndex = position
                 prefs.edit().putInt("current_plane_index", selectedIndex).apply()
+                // id máy bay đang chọn, lưu vào prefs để vào game
+                prefs.edit().putString("current_plane", planes[selectedIndex].id).apply()
             }
         })
 
-        // Tham chiếu UI
         tvPlayerName = findViewById(R.id.tvPlayerName)
         tvCoins = findViewById(R.id.tvCoins)
         etName = findViewById(R.id.etName)
@@ -66,9 +72,8 @@ class StartMenuActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.startBtn).setOnClickListener {
             val selectedPlane = planes[selectedIndex]
-            // Truyền vào MainActivity đúng ảnh máy bay góc thẳng
             val intent = Intent(this, MainActivity::class.java)
-            intent.putExtra("planeGameResId", selectedPlane.gameResId)
+            intent.putExtra("planeId", selectedPlane.id)
             startActivity(intent)
         }
 
@@ -100,8 +105,18 @@ class StartMenuActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         loadOfflineProfile()
-        // Cập nhật máy bay đã chọn từ prefs (nếu quay lại menu)
-        selectedIndex = prefs.getInt("current_plane_index", 0)
+
+        // Chỉ máy bay đã mua mới xuất hiện ở menu
+        val ownedPlanes = prefs.getStringSet("owned_planes", emptySet()) ?: emptySet()
+        planes = defaultPlanes + unlockPlanes.filter { ownedPlanes.contains(it.id) }
+
+        // Cập nhật lại adapter cho ViewPager2
+        planeViewPager.adapter = PlanePagerAdapter(planes)
+
+        // Lấy id máy bay đang dùng hiện tại từ prefs
+        val currentPlaneId = prefs.getString("current_plane", planes.first().id)
+        val index = planes.indexOfFirst { it.id == currentPlaneId }.takeIf { it >= 0 } ?: 0
+        selectedIndex = index
         planeViewPager.setCurrentItem(selectedIndex, false)
     }
 
