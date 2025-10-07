@@ -98,6 +98,8 @@ class Level3(
 
     private var levelTimer = 0
     private val levelDuration = 5 * 60
+    private var enemiesKilled = 0
+    private val requiredKills = 25 // Boss spawns after killing 25 enemies
 
     override var pickedGunMode: GunMode? = null
 
@@ -107,8 +109,8 @@ class Level3(
         scrollBackground?.update()
         levelTimer++
 
-        // Spawn boss sau khi hết thời gian
-        if (!isBossSpawned && levelTimer >= levelDuration) {
+        // Spawn boss sau khi giết đủ số quái
+        if (!isBossSpawned && enemiesKilled >= requiredKills) {
             boss = BossChicken(
                 x = (context.resources.displayMetrics.widthPixels - bossScaledBitmap.width) / 2,
                 y = 50,
@@ -151,6 +153,7 @@ class Level3(
                     usedBullets.add(bullet)
                     if (chicken.hp <= 0) {
                         deadChickens.add(chicken)
+                        enemiesKilled++ // Increment kill counter
                         if ((0..99).random() < 3) shields.add(Shield(chicken.x.toInt(), chicken.y.toInt(), scaledShieldBitmap, 5))
                         if ((0..99).random() < 3) healthItems.add(HealthItem(chicken.x.toInt(), chicken.y.toInt(), scaledHealthItemBitmap, 5))
                         if ((0..99).random() < 3) {
@@ -173,6 +176,7 @@ class Level3(
                 lives--
                 player.hit(playerExplosionFrames)
             }
+            enemiesKilled++ // Increment kill counter for collision
             chickens.remove(collidedChicken)
         }
 
@@ -372,6 +376,7 @@ class Level3(
         isLevelFinished = false
         waveIndex = 0
         levelTimer = 0
+        enemiesKilled = 0
         pickedGunMode = null
         saveCoinsToSystem()
     }

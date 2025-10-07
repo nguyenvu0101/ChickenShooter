@@ -139,7 +139,7 @@ import kotlinx.coroutines.launch
 
         // Level
         private var level = 1
-        private val maxLevel = 4
+        private val maxLevel = 3
         private lateinit var currentLevel: BaseLevel
         
         // Auto background selection based on level
@@ -705,10 +705,6 @@ import kotlinx.coroutines.launch
                         android.util.Log.d("GameView", "Creating Level3 instance...")
                         Level3(context, player, bulletBitmap, itemBitmaps, coinBitmap, backgroundId)
                     }
-                    4 -> {
-                        android.util.Log.d("GameView", "Creating Level4 instance...")
-                        Level4(context, player, bulletBitmap, itemBitmaps, coinBitmap, backgroundId)
-                    }
                     else -> {
                         android.util.Log.d("GameView", "Creating default Level1 instance...")
                         Level1(context, player, bulletBitmap, itemBitmaps, coinBitmap, backgroundId)
@@ -1129,12 +1125,12 @@ import kotlinx.coroutines.launch
                 val offset = 40
                 when (gunMode) {
                     GunMode.NORMAL, GunMode.FAST -> {
-                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 200, 90.0))
+                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 90.0))
                         if (isSoundOn) soundPool.play(gunshotSoundId, 1f, 1f, 1, 0, 1f)
                     }
 
                     GunMode.TRIPLE_PARALLEL -> {
-                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 200, 90.0))
+                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 90.0))
                         bullets.add(Bullet(center - offset, bulletY, bulletBitmap, 30, 2, 90.0))
                         bullets.add(Bullet(center + offset, bulletY, bulletBitmap, 30, 2, 90.0))
 
@@ -1142,7 +1138,7 @@ import kotlinx.coroutines.launch
                     }
 
                     GunMode.TRIPLE_SPREAD -> {
-                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 200, 90.0))
+                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 90.0))
                         bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 110.0))
                         bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 70.0))
                         if (isSoundOn) soundPool.play(gunshotSoundId, 1f, 1f, 1, 0, 1f)
@@ -1192,14 +1188,6 @@ import kotlinx.coroutines.launch
                     }
                     is Level3 -> {
                         val level = currentLevel as Level3
-                        level.chickens.clear()
-                        level.boss?.let { boss ->
-                            boss.hp -= 50
-                            if (boss.hp < 0) boss.hp = 0
-                        }
-                    }
-                    is Level4 -> {
-                        val level = currentLevel as Level4
                         level.chickens.clear()
                         level.boss?.let { boss ->
                             boss.hp -= 50

@@ -101,6 +101,8 @@ class Level1(
     private val levelDuration = 1 * 60
     private var waveTimer = 0
     private val waveInterval = 120 // số frame cho mỗi đợt (3 giây nếu 60fps)
+    private var enemiesKilled = 0
+    private val requiredKills = 15 // Boss spawns after killing 15 enemies
     override var pickedGunMode: GunMode? = null
 
     override fun update(bullets: MutableList<Bullet>) {
@@ -115,8 +117,8 @@ class Level1(
             waveIndex++
             waveTimer = 0
         }
-        // Spawn boss sau khi hết thời gian
-        if (!isBossSpawned && levelTimer >= levelDuration) {
+        // Spawn boss sau khi giết đủ số quái
+        if (!isBossSpawned && enemiesKilled >= requiredKills) {
             boss = BossChicken(
                 x = (context.resources.displayMetrics.widthPixels - bossScaledBitmap.width) / 2,
                 y = 50,
@@ -182,6 +184,7 @@ class Level1(
                     usedBullets.add(bullet)
                     if (chicken.hp <= 0) {
                         deadChickens.add(chicken)
+                        enemiesKilled++ // Increment kill counter
                         if ((0..99).random() < 3) shields.add(Shield(chicken.x.toInt(), chicken.y.toInt(), scaledShieldBitmap, 5))
                         if ((0..99).random() < 3) healthItems.add(HealthItem(chicken.x.toInt(), chicken.y.toInt(), scaledHealthItemBitmap, 5))
                         if ((0..99).random() < 3) {
@@ -204,6 +207,7 @@ class Level1(
                 lives--
                 player.hit(playerExplosionFrames)
             }
+            enemiesKilled++ // Increment kill counter for collision
             chickens.remove(collidedChicken)
         }
 
@@ -442,6 +446,7 @@ class Level1(
         isLevelFinished = false
         waveIndex = 0
         levelTimer = 0
+        enemiesKilled = 0
         pickedGunMode = null
         saveCoinsToSystem()
     }
