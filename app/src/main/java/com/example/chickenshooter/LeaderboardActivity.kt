@@ -13,12 +13,15 @@ class LeaderboardActivity : AppCompatActivity() {
 
         val listView: ListView = findViewById(R.id.leaderboardListView)
         val leaderboard = LeaderboardUtils.getLeaderboard(this)
+            .filter { it.completionTime < Long.MAX_VALUE } // Chỉ lấy dòng hợp lệ
+            .sortedBy { it.completionTime }
+            .take(10)
         val items = leaderboard.mapIndexed { i, entry ->
-            "Top ${i+1}: ${entry.score} xu - ${android.text.format.DateFormat.format("dd/MM/yyyy HH:mm", entry.timestamp)}"
+            val seconds = entry.completionTime / 1000
+            "Top ${i+1}: ${seconds}s - ${android.text.format.DateFormat.format("dd/MM/yyyy HH:mm", entry.timestamp)}"
         }
         listView.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, items)
 
-        // Thêm đoạn này ở đây:
         val btnClose = findViewById<Button>(R.id.btnClose)
         btnClose.setOnClickListener {
             finish()

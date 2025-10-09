@@ -94,8 +94,8 @@ import kotlinx.coroutines.launch
         private val movementSpeed = 45f // tốc độ bay
         private var isMoving = false
 
-        // Sound effect variables
 
+        private var gameStartTime: Long = 0L
         // âm thanh
         private lateinit var soundPool: SoundPool
         private var gunshotSoundId: Int = 0
@@ -654,6 +654,7 @@ import kotlinx.coroutines.launch
             coinBeforePlay = localCoin
             thread.running = true
             thread.start()
+            gameStartTime = System.currentTimeMillis()
         }
 
         fun startLevel(newLevel: Int) {
@@ -868,7 +869,8 @@ import kotlinx.coroutines.launch
             prefs.edit().putLong("coins", localCoin.toLong()).apply()
 
             val coinsThisGame = (localCoin - coinBeforePlay).coerceAtLeast(0) // Phòng trường hợp âm
-            LeaderboardUtils.saveScore(context, coinsThisGame)
+            val completionTime = System.currentTimeMillis() - gameStartTime
+            LeaderboardUtils.saveScore(context, coinsThisGame, completionTime)
 
             mediaPlayer?.release()
             mediaPlayer = null
