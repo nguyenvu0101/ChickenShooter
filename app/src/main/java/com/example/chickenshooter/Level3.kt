@@ -202,9 +202,6 @@ class Level3(
             if (p.y > screenH) projIt.remove()
         }
 
-        // ... (tất cả logic xử lý items, bullets, collision, boss, ... giữ nguyên như trước) ...
-        // --- Dưới đây chỉ là các phần còn lại giữ nguyên, đã rút gọn cho phần spawn gà theo đợt là chính ---
-
         // Bullet - Chicken collision
         handleBulletChickenCollision(chickens, bullets) { chicken ->
             enemiesKilled++
