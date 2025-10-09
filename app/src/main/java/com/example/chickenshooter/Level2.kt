@@ -93,24 +93,27 @@ class Level2(
 
     internal val chickens = mutableListOf<Chicken>()
     var boss: BossChicken? = null
+
+    // --- WAVE / BOSS STATE ---
     private var isBossSpawned = false
+    private var currentWave = 0
+    private val maxWaves = 5 // Cố định 5 wave
+    private var allWavesCompleted = false // Đảm bảo tất cả 5 wave đã hoàn thành
 
-    // --- WAVE LOGIC ---
-    private val wavePatterns = listOf(MoveType.BOUNCE, MoveType.SINE, MoveType.ZIGZAG)
-    private var waveIndex = 0
-    private var spawningWave = false
+    private val wavePatterns = listOf(MoveType.BOUNCE, MoveType.SINE, MoveType.ZIGZAG, MoveType.V, MoveType.SPIRAL)
+    var waveTimer = 0
 
-    private val chickenSpeed = 5f
-    private val chickenHp = 3
+    // (2) cap số gà đang hoạt động
+    private val maxActiveChickens = 16
+
+    // --- DIFFICULTY / PLAYER STATE ---
+    private val baseChickenSpeed = 5f
+    private val baseChickenHp = 3
     private var lives = 3
     private var isLevelFinished = false
 
-    private var levelTimer = 0
-    private val levelDuration = 5 * 60
-    private var waveTimer = 0
-    private val waveInterval = 120 // số frame cho mỗi đợt (2 giây nếu 60fps)
-    private var enemiesKilled = 0
-    private val requiredKills = 20 // Boss spawns after killing 20 enemies
+    var enemiesKilled = 0
+    var waveEnemiesKilled = 0
 
     override var pickedGunMode: GunMode? = null
 
@@ -118,28 +121,51 @@ class Level2(
         if (isLevelFinished) return
 
         scrollBackground?.update()
-        levelTimer++
-        waveTimer++
-        if (waveTimer >= waveInterval && !isBossSpawned) {
-            val pattern = wavePatterns[waveIndex % wavePatterns.size]
-            spawnWave(pattern)
-            waveIndex++
-            waveTimer = 0
-        }
-        // Spawn boss sau khi giết đủ số quái
-        if (!isBossSpawned && enemiesKilled >= requiredKills) {
-            boss = BossChicken(
-                x = (context.resources.displayMetrics.widthPixels - bossScaledBitmap.width) / 2,
-                y = 50,
-                bitmap = bossScaledBitmap,
-                hp = 200,
-                vx = 6,
-                vy = 3,
-                eggBitmap = eggBitmap,
-                screenWidth = context.resources.displayMetrics.widthPixels,
-                screenHeight = context.resources.displayMetrics.heightPixels
-            )
-            isBossSpawned = true
+        
+        // Flag để tránh trừ nhiều mạng cùng lúc
+        var playerHitThisFrame = false
+
+        // === Điều khiển spawn wave ===
+        if (!isBossSpawned && currentWave < maxWaves) {
+            // Spawn wave hiện tại nếu chưa spawn
+            if (waveTimer == 0) {
+                startWave(currentWave)
+                waveTimer = 1
+            }
+            
+            // Tăng wave timer mỗi frame
+            waveTimer++
+            
+            // Kiểm tra điều kiện hoàn thành wave
+            val requiredKillsForWave = getRequiredKillsForWave(currentWave)
+            if (waveEnemiesKilled >= requiredKillsForWave && chickens.isEmpty()) {
+                // Wave hoàn thành, chuyển ngay sang wave tiếp theo
+                currentWave++
+                waveTimer = 0
+                waveEnemiesKilled = 0
+                
+                // Kiểm tra xem đã hoàn thành tất cả 5 wave chưa
+                if (currentWave >= maxWaves) {
+                    allWavesCompleted = true
+                }
+            }
+            
+            // FALLBACK: Nếu wave bị stuck quá lâu (không có quái và không spawn), force spawn wave tiếp theo
+            if (chickens.isEmpty() && waveTimer > 300) { // 5 giây timeout
+                android.util.Log.w("Level2", "Wave stuck detected, forcing next wave. Current wave: $currentWave, Timer: $waveTimer")
+                currentWave++
+                waveTimer = 0
+                waveEnemiesKilled = 0
+                
+                if (currentWave >= maxWaves) {
+                    allWavesCompleted = true
+                }
+            }
+        } else if (allWavesCompleted && !isBossSpawned) {
+            // Đã hoàn thành tất cả 5 wave, kiểm tra tất cả quái đã bị tiêu diệt hết chưa
+            if (chickens.isEmpty() && boss == null) {
+                spawnBoss()
+            }
         }
 
         // Update chickens
@@ -155,21 +181,25 @@ class Level2(
         // Bullet - Chicken collision
         handleBulletChickenCollision(chickens, bullets) { chicken ->
             enemiesKilled++
-            if ((0..99).random() < 3) spawnShield(chicken.x.toInt(), chicken.y.toInt())
-            if ((0..99).random() < 3) spawnHealthItem(chicken.x.toInt(), chicken.y.toInt())
-            if ((0..99).random() < 3) {
+            waveEnemiesKilled++
+            if ((0..99).random() < 5) spawnShield(chicken.x.toInt(), chicken.y.toInt())
+            if ((0..99).random() < 5) spawnHealthItem(chicken.x.toInt(), chicken.y.toInt())
+            if ((0..99).random() < 4) {
                 val itemType = ItemType.values()[(0..2).random()]
                 spawnGunItem(chicken.x.toInt(), chicken.y.toInt(), itemType)
             }
-            if (Math.random() < 0.03) spawnMana(chicken.x.toInt(), chicken.y.toInt(), manaBitmap, 8)
+            if (Math.random() < 0.075) spawnMana(chicken.x.toInt(), chicken.y.toInt(), manaBitmap, 8)
             spawnCoin(chicken.x.toInt(), chicken.y.toInt(), chicken.bitmap.width, chicken.bitmap.height)
         }
 
         // Player - Chicken collision
         handlePlayerChickenCollision(chickens, 
             onPlayerHit = { 
-                lives--
-                player.hit(playerExplosionFrames)
+                if (!playerHitThisFrame && !player.isInvulnerable()) {
+                    lives--
+                    player.hit(playerExplosionFrames)
+                    playerHitThisFrame = true
+                }
             },
             onEnemyKilled = { enemiesKilled++ }
         )
@@ -189,8 +219,11 @@ class Level2(
         }
         handleBossCollision(boss, bullets,
             onPlayerHit = { 
-                lives--
-                player.hit(playerExplosionFrames)
+                if (!playerHitThisFrame && !player.isInvulnerable()) {
+                    lives--
+                    player.hit(playerExplosionFrames)
+                    playerHitThisFrame = true
+                }
             },
             onBossDefeated = {
                 isLevelFinished = true
@@ -207,34 +240,133 @@ class Level2(
         player.update()
     }
 
-    /**
-     * Spawn 1 đợt gà với pattern di chuyển được chỉ định
-     */
-    private fun spawnWave(moveType: MoveType) {
-        val numChickens = 7
+    // === WAVE MANAGEMENT FUNCTIONS ===
+    private fun getRequiredKillsForWave(wave: Int): Int {
+        return when (wave) {
+            0 -> 6  // Wave 1: 6 gà (tăng x2 từ 3)
+            1 -> 10 // Wave 2: 10 gà (tăng x2 từ 5)
+            2 -> 14 // Wave 3: 14 gà (tăng x2 từ 7)
+            3 -> 18 // Wave 4: 18 gà (tăng x2 từ 9)
+            4 -> 24 // Wave 5: 24 gà (tăng x2 từ 12)
+            else -> 24
+        }
+    }
+    
+    private fun startWave(wave: Int) {
+        val moveType = wavePatterns[wave % wavePatterns.size]
+        spawnWave(moveType, wave)
+    }
+    
+
+    private fun spawnWave(moveType: MoveType, wave: Int) {
+        // Progressive difficulty scaling theo wave (0-4)
+        val numChickens = getRequiredKillsForWave(wave) // Số gà = số kill cần thiết
+        val speedScale = baseChickenSpeed + (wave * 0.8f) // Tăng 0.8f mỗi wave
+        val hpScale = baseChickenHp + (wave / 2) // Tăng HP mỗi 2 wave
+
         val screenW = context.resources.displayMetrics.widthPixels
         val screenH = context.resources.displayMetrics.heightPixels
         val availableWidth = screenW - scaledChickenBitmap.width
-        val spacing = if (numChickens > 1)
-            availableWidth.toFloat() / (numChickens - 1)
-        else 0f
+        val spacing = if (numChickens > 1) availableWidth.toFloat() / (numChickens - 1) else 0f
 
-        // Hàng ngang đơn giản cho Level2
-        for (i in 0 until numChickens) {
-            val x = i * spacing
-            chickens.add(
-                Chicken(
-                    x = x,
-                    y = 0f,
-                    bitmap = scaledChickenBitmap,
-                    speed = chickenSpeed,
-                    moveType = moveType,
-                    hp = chickenHp,
-                    screenWidth = screenW,
-                    screenHeight = screenH
-                )
-            )
+        val formationType = wave % 4
+        when (formationType) {
+            0 -> { // HÀNG NGANG ĐỀU
+                for (i in 0 until numChickens) {
+                    val x = i * spacing
+                    chickens.add(
+                        Chicken(
+                            x = x,
+                            y = 0f,
+                            bitmap = scaledChickenBitmap,
+                            speed = speedScale,
+                            moveType = moveType,
+                            hp = hpScale,
+                            screenWidth = screenW,
+                            screenHeight = screenH
+                        )
+                    )
+                }
+            }
+            1 -> { // HÌNH CHỮ V NHỌN
+                val mid = (numChickens - 1) / 2f
+                val vHeight = 200f + wave * 6f // chữ V sâu dần
+                for (i in 0 until numChickens) {
+                    val x = i * spacing
+                    val dx = kotlin.math.abs(i - mid)
+                    val y = dx / kotlin.math.max(1f, mid) * vHeight
+                    chickens.add(
+                        Chicken(
+                            x = x,
+                            y = y,
+                            bitmap = scaledChickenBitmap,
+                            speed = speedScale,
+                            moveType = moveType,
+                            hp = hpScale,
+                            screenWidth = screenW,
+                            screenHeight = screenH
+                        )
+                    )
+                }
+            }
+            2 -> { // ZIGZAG
+                val offset = 50f + wave * 3f
+                for (i in 0 until numChickens) {
+                    val x = i * spacing
+                    val y = if (i % 2 == 0) 0f else offset
+                    chickens.add(
+                        Chicken(
+                            x = x,
+                            y = y,
+                            bitmap = scaledChickenBitmap,
+                            speed = speedScale,
+                            moveType = moveType,
+                            hp = hpScale,
+                            screenWidth = screenW,
+                            screenHeight = screenH
+                        )
+                    )
+                }
+            }
+            3 -> { // SIN ĐẦU
+                val amplitude = 60f + wave * 2.5f
+                val freq = Math.PI / kotlin.math.max(1, numChickens)
+                for (i in 0 until numChickens) {
+                    val x = i * spacing
+                    val y = amplitude * (1 + Math.sin(i * freq)).toFloat()
+                    chickens.add(
+                        Chicken(
+                            x = x,
+                            y = y,
+                            bitmap = scaledChickenBitmap,
+                            speed = speedScale,
+                            moveType = moveType,
+                            hp = hpScale,
+                            screenWidth = screenW,
+                            screenHeight = screenH
+                        )
+                    )
+                }
+            }
         }
+    }
+
+    private fun spawnBoss() {
+        val screenW = context.resources.displayMetrics.widthPixels
+        val screenH = context.resources.displayMetrics.heightPixels
+        boss = BossChicken(
+            x = (screenW - bossScaledBitmap.width) / 2,
+            y = 50,
+            bitmap = bossScaledBitmap,
+            hp = 200,  // Boss Level 2 khó hơn Level 1 (200 -> 300)
+            vx = 3,
+            vy = 2,
+            eggBitmap = scaledEggBitmap, // dùng bitmap đã scale
+            screenWidth = screenW,
+            screenHeight = screenH,
+            eggCount = 4 // Level2: 4 tia
+        )
+        isBossSpawned = true
     }
 
     override fun draw(canvas: Canvas, bullets: List<Bullet>, backgroundY: Float) {
@@ -285,12 +417,13 @@ class Level2(
         chickens.clear()
         boss = null
         isBossSpawned = false
+        currentWave = 0
+        allWavesCompleted = false
         lives = 3
         isLevelFinished = false
-        waveIndex = 0
-        levelTimer = 0
         waveTimer = 0
         enemiesKilled = 0
+        waveEnemiesKilled = 0
         pickedGunMode = null
         saveCoinsToSystem()
     }

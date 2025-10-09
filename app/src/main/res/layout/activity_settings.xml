@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- Ảnh nền -->
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:src="@drawable/demo" />
+
+    <!-- Nội dung chính -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:padding="28dp"
+            android:layout_margin="20dp"
+            android:elevation="8dp"
+            android:clipToPadding="false">
+
+            <!-- Tiêu đề -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="30dp"
+                android:text="Cài đặt"
+                android:textColor="@android:color/white"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:shadowColor="#FF5722"
+                android:shadowDx="1"
+                android:shadowDy="1"
+                android:shadowRadius="2"/>
+
+            <!-- Thông tin hiện tại -->
+            <TextView
+                android:id="@+id/tvCurrentName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:text="Tên hiện tại: Player"
+                android:textColor="@android:color/white"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:shadowColor="#FF5722"
+                android:shadowDx="0.5"
+                android:shadowDy="0.5"
+                android:shadowRadius="1"/>
+
+            <TextView
+                android:id="@+id/tvCoins"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="30dp"
+                android:text="Xu: 0"
+                android:textColor="#FFEB3B"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:shadowColor="#FF9800"
+                android:shadowDx="1"
+                android:shadowDy="1"
+                android:shadowRadius="1"/>
+
+            <!-- Nhập tên mới -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:text="Thay đổi tên người chơi"
+                android:textColor="#FFEB3B"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:shadowColor="#000"
+                android:shadowDx="0"
+                android:shadowDy="1"
+                android:shadowRadius="2"/>
+
+            <EditText
+                android:id="@+id/etPlayerName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:background="@android:color/white"
+                android:hint="Nhập tên người chơi mới"
+                android:textColor="#222"
+                android:textSize="16sp"
+                android:padding="10dp"
+                android:elevation="2dp"
+                android:drawableLeft="@android:drawable/ic_menu_edit"/>
+
+            <Button
+                android:id="@+id/btnSaveName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="20dp"
+                android:backgroundTint="#4CAF50"
+                android:text="Lưu tên mới"
+                android:textColor="@android:color/white"
+                android:textStyle="bold"
+                android:textAllCaps="false"
+                android:elevation="2dp"/>
+
+            <!-- Nút quay lại -->
+            <Button
+                android:id="@+id/btnBack"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:backgroundTint="#FF5722"
+                android:text="Quay lại"
+                android:textColor="@android:color/white"
+                android:textStyle="bold"
+                android:textAllCaps="false"
+                android:elevation="2dp"/>
+
+        </LinearLayout>
+    </ScrollView>
+</FrameLayout>

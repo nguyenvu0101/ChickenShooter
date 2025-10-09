@@ -30,11 +30,9 @@ class StartMenuActivity : AppCompatActivity() {
     // UI
     private lateinit var tvPlayerName: TextView
     private lateinit var tvCoins: TextView
-    private lateinit var etName: EditText
-    private lateinit var btnSaveName: Button
-    private lateinit var btnChangeName: Button
     private lateinit var btnCart: ImageButton
     private lateinit var btnLeaderboard: ImageButton
+    private lateinit var btnSetting: ImageButton
     private lateinit var planeViewPager: ViewPager2
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,11 +53,9 @@ class StartMenuActivity : AppCompatActivity() {
 
         tvPlayerName = findViewById(R.id.tvPlayerName)
         tvCoins = findViewById(R.id.tvCoins)
-        etName = findViewById(R.id.etName)
-        btnSaveName = findViewById(R.id.btnSaveName)
-        btnChangeName = findViewById(R.id.btnChangeName)
         btnCart = findViewById(R.id.btnCart)
         btnLeaderboard = findViewById(R.id.btnLeaderboard)
+        btnSetting = findViewById(R.id.btnSetting)
 
         btnLeaderboard.setOnClickListener {
             val intent = Intent(this, LeaderboardActivity::class.java)
@@ -67,6 +63,10 @@ class StartMenuActivity : AppCompatActivity() {
         }
         btnCart.setOnClickListener {
             val intent = Intent(this, CartActivity::class.java)
+            startActivity(intent)
+        }
+        btnSetting.setOnClickListener {
+            val intent = Intent(this, SettingsActivity::class.java)
             startActivity(intent)
         }
 
@@ -77,34 +77,14 @@ class StartMenuActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
-        btnSaveName.setOnClickListener {
-            val inputName = etName.text.toString().trim()
-            if (inputName.isEmpty()) {
-                toast("Nhập tên trước đã!")
-                return@setOnClickListener
-            }
-            setOfflineName(inputName)
-            tvPlayerName.text = "Tên: $inputName"
-            etName.visibility = View.GONE
-            btnSaveName.visibility = View.GONE
-            tvPlayerName.visibility = View.VISIBLE
-            btnChangeName.visibility = View.VISIBLE
-            toast("Đã lưu tên")
-        }
-
-        btnChangeName.setOnClickListener {
-            etName.visibility = View.VISIBLE
-            btnSaveName.visibility = View.VISIBLE
-            tvPlayerName.visibility = View.GONE
-            btnChangeName.visibility = View.GONE
-            etName.setText("")
-            etName.requestFocus()
-        }
+        // Load player name from settings
+        loadPlayerName()
     }
 
     override fun onResume() {
         super.onResume()
         loadOfflineProfile()
+        loadPlayerName() // Reload player name when returning from settings
 
         // Chỉ máy bay đã mua mới xuất hiện ở menu
         val ownedPlanes = prefs.getStringSet("owned_planes", emptySet()) ?: emptySet()
@@ -128,32 +108,25 @@ class StartMenuActivity : AppCompatActivity() {
         prefs.edit().putLong("coins", coins).apply()
     }
 
+    private fun loadPlayerName() {
+        val playerName = prefs.getString("player_name", "Player") ?: "Player"
+        tvPlayerName.text = "Tên: $playerName"
+    }
+
     private fun loadOfflineProfile() {
-        val (name, coins) = getOfflineProfile()
-        tvPlayerName.text = "Tên: $name"
+        val (_, coins) = getOfflineProfile()
         tvCoins.text = "Xu: $coins"
-        val hasName = prefs.getString("display_name", null) != null
-        if (hasName) {
-            etName.visibility = View.GONE
-            btnSaveName.visibility = View.GONE
-            tvPlayerName.visibility = View.VISIBLE
-            btnChangeName.visibility = View.VISIBLE
-        } else {
-            etName.visibility = View.VISIBLE
-            btnSaveName.visibility = View.VISIBLE
-            tvPlayerName.visibility = View.GONE
-            btnChangeName.visibility = View.GONE
-        }
+        // Player name is loaded separately in loadPlayerName()
     }
 
     private fun getOfflineProfile(): Pair<String, Long> {
-        val name = prefs.getString("display_name", "Player") ?: "Player"
+        val name = prefs.getString("player_name", "Player") ?: "Player"
         val coins = prefs.getLong("coins", 0L)
         return name to coins
     }
 
     private fun setOfflineName(name: String) {
-        prefs.edit().putString("display_name", name).apply()
+        prefs.edit().putString("player_name", name).apply()
     }
 
     private fun toast(msg: String) =

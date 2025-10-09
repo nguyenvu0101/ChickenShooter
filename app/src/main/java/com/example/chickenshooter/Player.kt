@@ -25,7 +25,7 @@ class Player(
     // Trạng thái nhấp nháy sau khi nổ
     private var isBlinking = false
     private var blinkStartTime = 0L
-    private val blinkDuration = 2000L // 2 giây
+    private val blinkDuration = 5000L // 5 giây
     private val blinkInterval = 200L
 
     // Paint khiên
@@ -131,5 +131,8 @@ class Player(
     }
 
     fun isAlive(): Boolean = lives > 0
+    
+    // Getter cho trạng thái bất tử
+    fun isInvulnerable(): Boolean = hasShield || isExploding || isBlinking
 }
 

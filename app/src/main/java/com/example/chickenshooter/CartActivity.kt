@@ -53,6 +53,12 @@ class CartActivity : AppCompatActivity() {
 
         setupBulletButton(btnBuyBullet1, "bullet_cart1", priceBullet1, "Đạn thường", ownedBullets, tvCoins)
         setupBulletButton(btnBuyBullet2, "bullet_cart2", priceBullet2, "Đạn xuyên phá", ownedBullets, tvCoins)
+        
+        // Nút quay lại
+        val btnBack = findViewById<Button>(R.id.btnBack)
+        btnBack.setOnClickListener {
+            goToStartMenu()
+        }
     }
 
     private fun setupPlaneButton(

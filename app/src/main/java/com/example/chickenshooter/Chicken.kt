@@ -64,7 +64,7 @@ class Chicken(
             MoveType.DOWN -> {
                 // Lò xo lên xuống giữa minY và maxY (gần tới player)
                 val minY = 0f
-                val maxY = playerY - 120f
+                val maxY = minOf(playerY - 120f, screenHeight * 0.6f - bitmap.height)
                 y += phaseSpring * speed
                 if (y < minY) {
                     y = minY
@@ -77,7 +77,7 @@ class Chicken(
             }
             MoveType.SINE -> {
                 val minY = 0f
-                val maxY = screenHeight - bitmap.height - 50f
+                val maxY = screenHeight * 0.6f - bitmap.height
                 y += phaseSpring * speed        // Thêm dòng này thay vì y += speed
                 x = originalX + sin(tick * frequency) * amplitude
                 if (y < minY) {
@@ -92,7 +92,7 @@ class Chicken(
             MoveType.ZIGZAG -> {
                 // Zigzag ngang + lên xuống như lò xo
                 val minY = 0f
-                val maxY = playerY - 120f
+                val maxY = minOf(playerY - 120f, screenHeight * 0.6f - bitmap.height)
                 y += phaseSpring * speed
                 x += zigzagDir * speed * 1.1f
                 if (x < 0f) {
@@ -115,7 +115,7 @@ class Chicken(
             MoveType.V -> {
                 // Nếu muốn cũng lên-xuống mãi thì sửa như SINE:
                 val minY = 0f
-                val maxY = screenHeight - bitmap.height - 50f
+                val maxY = screenHeight * 0.6f - bitmap.height
                 y += phaseSpring * speed
                 val period = 120f
                 val amp = 60f
@@ -131,8 +131,8 @@ class Chicken(
             }
             MoveType.SPIRAL -> {
                 val minY = 0f
-                val maxY = screenHeight - bitmap.height - 50f
-                y += phaseSpring * speed * 0.7f
+                val maxY = screenHeight * 0.6f - bitmap.height
+                y += phaseSpring * speed * 0.6f
                 angle += 0.1f
                 x += cos(angle) * 3f
                 if (y < minY) {
@@ -146,7 +146,7 @@ class Chicken(
             }
             MoveType.FIGURE8 -> {
                 val minY = 0f
-                val maxY = screenHeight - bitmap.height - 50f
+                val maxY = screenHeight * 0.6f - bitmap.height
                 y += phaseSpring * speed * 0.8f
                 val t = tick * 0.045f
                 x = originalX + sin(t) * amplitude + cos(t * 2) * amplitude * 0.5f
@@ -161,7 +161,7 @@ class Chicken(
             }
             MoveType.BOUNCE -> {
                 // Giai đoạn 1: rơi xuống gần đáy
-                val bottomY = screenHeight * 0.85f - bitmap.height
+                val bottomY = screenHeight * 0.6f - bitmap.height
                 if (bouncePhase == 0 && y < bottomY) {
                     y += speed
                     x += direction * speed * 1.5f

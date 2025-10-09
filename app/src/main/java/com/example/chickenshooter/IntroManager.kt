@@ -14,10 +14,10 @@ class IntroManager(
 ) {
     // Danh sách câu chuyện intro
     private val storyLines = listOf(
-        "Giữa biển sao vô tận, quân đoàn Gà Thiên Hà đang lan tràn bóng tối.",
-        "Chúng đã bắt giữ những người quan trọng với Jack: bé Sol, K-ICM, Thiên An và cộng đồng fan Đom Đóm.",
-        "Jack khởi động phi thuyền J97.",
-        "Nhiệm vụ của anh: xuyên qua các vì sao, chiến đấu và giải cứu tất cả."
+        "Giữa biển sao vô tận, quân đoàn Gà Thiên Hà đã lan tràn đến Trái đất.",
+        "Chúng đã bắt giữ những người quan trọng với Jack: bé Sol, K-ICM và Thiên An.",
+        "Jack phải khởi động phi thuyền J97.",
+        "Xuyên qua các vì sao, chiến đấu với quân đoàn gà là nhiệm vụ của anh."
     )
     
     private var currentLineIndex = 0

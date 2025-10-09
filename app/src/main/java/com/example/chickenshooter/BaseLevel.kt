@@ -77,7 +77,7 @@ abstract class BaseLevel(
 
     // ----------- Mana System for Missile ------------
     var manaCount = 0
-    val manaNeededForMissile = 5
+    val manaNeededForMissile = 2
     protected val manaItems = mutableListOf<Item>()
     var onManaCollected: ((amount: Int) -> Unit)? = null
 

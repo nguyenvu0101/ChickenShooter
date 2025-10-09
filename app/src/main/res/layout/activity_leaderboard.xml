@@ -3,58 +3,69 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- Nền mờ tối -->
-    <View
+    <!-- Ảnh nền -->
+    <ImageView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#80000000" />
+        android:scaleType="centerCrop"
+        android:src="@drawable/demo" />
 
-    <!-- Khung leaderboard nổi bật -->
-    <LinearLayout
-        android:orientation="vertical"
-        android:padding="18dp"
+    <!-- Nội dung chính -->
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:layout_margin="28dp"
-        android:background="@drawable/bg_leaderboard_rounded"
-        android:elevation="10dp"
-        android:gravity="center_horizontal">
+        android:layout_height="match_parent"
+        android:fillViewport="true">
 
-        <TextView
-            android:text="BẢNG XẾP HẠNG"
-            android:textStyle="bold"
-            android:textSize="28sp"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
-            android:textColor="#FFD600"
-            android:shadowColor="#BF360C"
-            android:shadowDx="2"
-            android:shadowDy="2"
-            android:shadowRadius="6"/>
-
-        <ListView
-            android:id="@+id/leaderboardListView"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:divider="#FF9800"
-            android:dividerHeight="2dp"
-            android:background="@android:color/transparent"
-            android:listSelector="@android:color/transparent"
-            android:layout_marginTop="6dp"
-            android:layout_marginBottom="6dp"/>
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:padding="28dp"
+            android:layout_margin="20dp"
+            android:elevation="8dp"
+            android:clipToPadding="false">
 
-        <Button
-            android:id="@+id/btnClose"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Đóng"
-            android:textColor="#FFF"
-            android:backgroundTint="#FF5722"
-            android:elevation="2dp"
-            android:layout_marginTop="12dp"
-            android:layout_gravity="center"/>
+            <!-- Tiêu đề -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="30dp"
+                android:text="BẢNG XẾP HẠNG"
+                android:textColor="@android:color/white"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:shadowColor="#FF5722"
+                android:shadowDx="1"
+                android:shadowDy="1"
+                android:shadowRadius="2"/>
 
-    </LinearLayout>
+            <!-- Danh sách xếp hạng -->
+            <ListView
+                android:id="@+id/leaderboardListView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:divider="#FF9800"
+                android:dividerHeight="2dp"
+                android:background="#80000000"
+                android:listSelector="@android:color/transparent"
+                android:layout_marginTop="6dp"
+                android:layout_marginBottom="6dp"
+                android:padding="16dp"/>
+
+            <!-- Nút quay lại -->
+            <Button
+                android:id="@+id/btnClose"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:backgroundTint="#FF5722"
+                android:text="Quay lại"
+                android:textColor="@android:color/white"
+                android:textStyle="bold"
+                android:textAllCaps="false"
+                android:elevation="2dp"/>
+
+        </LinearLayout>
+    </ScrollView>
 </FrameLayout>

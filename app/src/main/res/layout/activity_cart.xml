@@ -1,49 +1,75 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:cardview="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="#F5F6FA">
+    android:layout_height="match_parent">
 
-    <LinearLayout
-        android:orientation="vertical"
+    <!-- Ảnh nền -->
+    <ImageView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="16dp">
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:src="@drawable/demo" />
 
-        <!-- Tiêu đề -->
-        <TextView
-            android:text="Cửa hàng"
-            android:textSize="26sp"
-            android:textStyle="bold"
-            android:textColor="#22223B"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:layout_marginBottom="20dp" />
+    <!-- Nội dung chính -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
 
-        <!-- Số xu người chơi -->
-        <TextView
-            android:id="@+id/tvCoinsInCart"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Xu: 0"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:textColor="#22223B"
-            android:layout_gravity="center"
-            android:layout_marginBottom="12dp"/>
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:padding="28dp"
+            android:layout_margin="20dp"
+            android:elevation="8dp"
+            android:clipToPadding="false">
+
+            <!-- Tiêu đề -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="30dp"
+                android:text="Cửa hàng"
+                android:textColor="@android:color/white"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:shadowColor="#FF5722"
+                android:shadowDx="1"
+                android:shadowDy="1"
+                android:shadowRadius="2"/>
+
+            <!-- Số xu người chơi -->
+            <TextView
+                android:id="@+id/tvCoinsInCart"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="30dp"
+                android:text="Xu: 0"
+                android:textColor="#FFEB3B"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:shadowColor="#FF9800"
+                android:shadowDx="1"
+                android:shadowDy="1"
+                android:shadowRadius="1"/>
 
         <!-- Danh sách máy bay -->
         <TextView
             android:text="Máy bay"
             android:textSize="20sp"
             android:textStyle="bold"
-            android:textColor="#4F8EF7"
+            android:textColor="#FFEB3B"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:layout_marginBottom="12dp" />
+            android:layout_marginBottom="12dp"
+            android:shadowColor="#000"
+            android:shadowDx="0"
+            android:shadowDy="1"
+            android:shadowRadius="2"/>
 
         <!-- Máy bay 1 -->
         <androidx.cardview.widget.CardView
@@ -51,6 +77,7 @@
             android:layout_height="wrap_content"
             cardview:cardCornerRadius="16dp"
             cardview:cardElevation="8dp"
+            cardview:cardBackgroundColor="#80000000"
             android:layout_marginBottom="12dp"
             android:layout_marginTop="4dp">
 
@@ -78,14 +105,14 @@
                         android:text="Máy bay thường"
                         android:textSize="18sp"
                         android:textStyle="bold"
-                        android:textColor="#22223B"
+                        android:textColor="@android:color/white"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content" />
                     <TextView
                         android:id="@+id/tvPricePlane1"
                         android:text="Giá: 0 xu"
                         android:textSize="15sp"
-                        android:textColor="#4F8EF7"
+                        android:textColor="#FFEB3B"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"/>
@@ -108,6 +135,7 @@
             android:layout_height="wrap_content"
             cardview:cardCornerRadius="16dp"
             cardview:cardElevation="8dp"
+            cardview:cardBackgroundColor="#80000000"
             android:layout_marginBottom="12dp">
 
             <LinearLayout
@@ -134,14 +162,14 @@
                         android:text="Máy bay siêu tốc"
                         android:textSize="18sp"
                         android:textStyle="bold"
-                        android:textColor="#22223B"
+                        android:textColor="@android:color/white"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content" />
                     <TextView
                         android:id="@+id/tvPricePlane2"
                         android:text="Giá: 0 xu"
                         android:textSize="15sp"
-                        android:textColor="#4F8EF7"
+                        android:textColor="#FFEB3B"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"/>
@@ -163,11 +191,15 @@
             android:text="Đạn"
             android:textSize="20sp"
             android:textStyle="bold"
-            android:textColor="#F76D6D"
+            android:textColor="#FFEB3B"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="14dp"
-            android:layout_marginBottom="12dp" />
+            android:layout_marginBottom="12dp"
+            android:shadowColor="#000"
+            android:shadowDx="0"
+            android:shadowDy="1"
+            android:shadowRadius="2"/>
 
         <!-- Đạn thường -->
         <androidx.cardview.widget.CardView
@@ -175,6 +207,7 @@
             android:layout_height="wrap_content"
             cardview:cardCornerRadius="16dp"
             cardview:cardElevation="8dp"
+            cardview:cardBackgroundColor="#80000000"
             android:layout_marginBottom="12dp">
 
             <LinearLayout
@@ -201,14 +234,14 @@
                         android:text="Đạn thường"
                         android:textSize="18sp"
                         android:textStyle="bold"
-                        android:textColor="#22223B"
+                        android:textColor="@android:color/white"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content" />
                     <TextView
                         android:id="@+id/tvPriceBullet1"
                         android:text="Giá: 0 xu"
                         android:textSize="15sp"
-                        android:textColor="#F76D6D"
+                        android:textColor="#FFEB3B"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"/>
@@ -231,6 +264,7 @@
             android:layout_height="wrap_content"
             cardview:cardCornerRadius="16dp"
             cardview:cardElevation="8dp"
+            cardview:cardBackgroundColor="#80000000"
             android:layout_marginBottom="12dp">
 
             <LinearLayout
@@ -257,14 +291,14 @@
                         android:text="Đạn xuyên phá"
                         android:textSize="18sp"
                         android:textStyle="bold"
-                        android:textColor="#22223B"
+                        android:textColor="@android:color/white"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content" />
                     <TextView
                         android:id="@+id/tvPriceBullet2"
                         android:text="Giá: 0 xu"
                         android:textSize="15sp"
-                        android:textColor="#F76D6D"
+                        android:textColor="#FFEB3B"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"/>
@@ -283,5 +317,19 @@
 
         <!-- Thêm các loại máy bay/đạn khác nếu muốn, chỉ cần copy CardView và chỉnh thông tin -->
 
-    </LinearLayout>
-</ScrollView>
+        <!-- Nút quay lại -->
+        <Button
+            android:id="@+id/btnBack"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:backgroundTint="#FF5722"
+            android:text="Quay lại"
+            android:textColor="@android:color/white"
+            android:textStyle="bold"
+            android:textAllCaps="false"
+            android:elevation="2dp"/>
+
+        </LinearLayout>
+    </ScrollView>
+</FrameLayout>

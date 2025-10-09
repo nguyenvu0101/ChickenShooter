@@ -15,6 +15,7 @@ package com.example.chickenshooter
     import android.view.SurfaceView
     import android.media.SoundPool
     import com.example.chickenshooter.levels.*
+    import com.example.chickenshooter.levels.Level3
     import android.media.MediaPlayer
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Dispatchers
@@ -137,6 +138,10 @@ import kotlinx.coroutines.launch
         // Level
         private var level = 1
         private val maxLevel = 3
+        
+        // Thời gian hoàn thành game
+        private var gameStartTime: Long = 0L
+        private var gameCompletionTime: Long = 0L
         private lateinit var currentLevel: BaseLevel
         
         // Auto background selection based on level
@@ -157,10 +162,7 @@ import kotlinx.coroutines.launch
         private val autoShootIntervalNormal = 10
         private val autoShootIntervalFast = 5
 
-        // Background scrolling system
-        private var backgroundY = 0f
-        private var isBackgroundScrolling = true
-        private var backgroundScrollSpeed = 2f
+        // Background scrolling system - removed, handled by individual levels
         
         // Transition system thay thế delay cứng
         private var isTransitioning = false
@@ -215,38 +217,13 @@ import kotlinx.coroutines.launch
         private var localCoin = 0
         private var coinBeforePlay = 0
 
-        // Background scrolling methods
-        private fun updateBackgroundScrolling() {
-            if (isBackgroundScrolling) {
-                backgroundY += backgroundScrollSpeed
-                if (backgroundY >= height) {
-                    backgroundY = 0f
-                }
-            }
-        }
-        
-        private fun stopBackgroundScrolling() {
-            isBackgroundScrolling = false
-        }
-        
-        private fun resumeBackgroundScrolling() {
-            isBackgroundScrolling = true
-        }
+        // Background scrolling methods - removed, handled by individual levels
         
         private fun checkBossEncounter() {
             if (::currentLevel.isInitialized && currentLevel.isBossSpawned() && !bossEncountered) {
                 bossEncountered = true
-                stopBackgroundScrolling()
                 transitionType = TransitionType.BOSS_ENCOUNTER
-                android.util.Log.d("GameView", "Boss encountered! Background scrolling stopped.")
-            }
-            
-            // Đảm bảo background không cuộn khi boss đang bị bắn
-            if (::currentLevel.isInitialized && currentLevel.isBossSpawned() && !bossDefeated) {
-                if (isBackgroundScrolling) {
-                    stopBackgroundScrolling()
-                    android.util.Log.d("GameView", "Boss is being fought! Background scrolling stopped.")
-                }
+                android.util.Log.d("GameView", "Boss encountered!")
             }
         }
         
@@ -274,8 +251,7 @@ import kotlinx.coroutines.launch
             isPlaneLaunching = true
             currentPlaneSpeed = 0f
             transitionType = TransitionType.PLANE_LAUNCH
-            // Đảm bảo background không cuộn khi plane launch
-            stopBackgroundScrolling()
+            // Background scrolling handled by individual levels
             android.util.Log.d("GameView", "Starting plane launch animation")
         }
         
@@ -331,6 +307,11 @@ import kotlinx.coroutines.launch
             android.util.Log.d("GameView", "Showing final congratulations for completing all levels!")
             showFinalCongratulations = true
             finalCongratulationsCounter = 0
+            
+            // Tính thời gian hoàn thành game
+            gameCompletionTime = System.currentTimeMillis()
+            val completionTimeMs = gameCompletionTime - gameStartTime
+            android.util.Log.d("GameView", "Game completed in ${completionTimeMs}ms (${completionTimeMs / 1000.0}s)")
             
             // Play congratulations sound
             if (isSoundOn) {
@@ -485,13 +466,10 @@ import kotlinx.coroutines.launch
     1 to LevelScript(
         // Rescued: SOL
         opening = DialogueScene(listOf(
-            DialogueLine(Speaker.JACK,      "Sol, bám vững nhé! Cha đang mở đường xuyên qua ổ gà thiên hà đây!"),
-            DialogueLine(Speaker.SOL,       "Con thấy ánh đèn của cha rồi! Con ở đây, cha đừng lo!"),
-            DialogueLine(Speaker.BOSS,      "Vô ích, phàm nhân! Ổ gà của ta không dành cho tình thân yếu đuối!")
+            DialogueLine(Speaker.JACK,      "Sol, bám vững nhé! Ba đang mở đường xuyên qua ổ gà thiên hà đây!"),
+            DialogueLine(Speaker.BOSS,      "Vô ích thôi loài người! Khạc khạc khạc ...!")
         )),
         ending = DialogueScene(listOf(
-            DialogueLine(Speaker.JACK,      "Cha đến rồi, Sol! Từ nay bất cứ nơi đâu con ở, cha cũng tìm thấy."),
-            DialogueLine(Speaker.SOL,       "Con tin cha mà! Dải ngân hà rộng lớn nhưng trái tim con không còn sợ."),
             DialogueLine(Speaker.BOSS,      "Khặc… khặc… tận hưởng đi! Lần tới, lông cánh thép của ta sẽ nghiền nát hy vọng!")
         ))
     ),
@@ -499,28 +477,24 @@ import kotlinx.coroutines.launch
     2 to LevelScript(
         // Rescued: KICM — UPDATED
         opening = DialogueScene(listOf(
-            DialogueLine(Speaker.JACK,      "K-ICM! Mình đã mở hành lang lửa—bám theo quỹ đạo đạn của mình!"),
-            DialogueLine(Speaker.KICM,      "Rõ! Mình thả vòng bass gây nhiễu tín hiệu—cậu cứ lao thẳng vào lõi phòng tuyến!"),
+            DialogueLine(Speaker.JACK,      "K-ICM! mình đã đến cứu bạn rồi đây!"),
             DialogueLine(Speaker.BOSS,      "Nhạc của các ngươi chỉ là tạp âm trước tiếng gáy tối hậu của ta!")
         )),
         ending = DialogueScene(listOf(
-            DialogueLine(Speaker.JACK,      "Xích đã đứt rồi. Cùng nhau viết lại giai điệu cho cả bầu trời này."),
-            DialogueLine(Speaker.KICM,      "Đổi nhịp sang tự do—từ nay beat của chúng ta át mọi tiếng gà trong vũ trụ!"),
-            DialogueLine(Speaker.BOSS,      "Khà… khà… nhớ soạn sẵn bản nhạc tang—các ngươi sẽ cần sớm thôi!")
+            DialogueLine(Speaker.BOSS,      "Khà… khà… Lần này tha cho các ngươi đó!")
         ))
     ),
 
     3 to LevelScript(
-        // Rescued: THIEN_AN — NAME FIXED TO "Thiên An"
         opening = DialogueScene(listOf(
-            DialogueLine(Speaker.JACK,      "Thiên An! Dù kết giới photon có bóp méo không gian, anh vẫn bắt được tín hiệu của em!"),
-            DialogueLine(Speaker.THIEN_AN,  "Em bình tĩnh đây, Jack. Chỉ cần anh tới, bóng tối cũng phải lùi."),
-            DialogueLine(Speaker.BOSS,      "Lời hứa mỏng manh! Hố đen của ta nuốt sạch mọi ánh nhìn si tình!")
+            DialogueLine(Speaker.JACK,      "Thiên An! Hãy chờ anh, lần này anh sẽ đánh bại lũ gà thối tha này!"),
+            DialogueLine(Speaker.BOSS,      "Thật là tình cảm quá, Haha, hãy chiến một trận cuối cùng này!")
         )),
         ending = DialogueScene(listOf(
-            DialogueLine(Speaker.JACK,      "Thiên An đã thoát rồi—nắm tay anh, ta bẻ gãy xiềng xích của đêm đen."),
-            DialogueLine(Speaker.THIEN_AN,  "Ánh sáng nơi anh đủ ấm để gom cả bầu trời về một phía."),
-            DialogueLine(Speaker.BOSS,      "Hừ! Tình yêu à… ta sẽ cho nó bão từ để tắt lịm!")
+            DialogueLine(Speaker.BOSS,      "KHÔNGGGG, QUÂN ĐOÀN BẤT BẠI CỦA TA .... A!!!"),
+            DialogueLine(Speaker.SOL,      "Ba thật là tuyệt!"),
+            DialogueLine(Speaker.KICM,      "Cảm ơn người bạn của tôi"),
+            DialogueLine(Speaker.THIEN_AN,      "Thật tốt quá Jack, anh đánh bại được lũ gà rồi"),
         ))
     ),
 
@@ -532,6 +506,9 @@ import kotlinx.coroutines.launch
 
             // Khởi tạo bitmap cho projectiles
             ChickenProjectile.init(context.resources)
+
+            // Khởi tạo thời gian bắt đầu game
+            gameStartTime = System.currentTimeMillis()
 
             isFocusable = true
         }
@@ -737,9 +714,7 @@ import kotlinx.coroutines.launch
             showFinalCongratulations = false
             finalCongratulationsCounter = 0
             
-            // Resume background scrolling for new level
-            resumeBackgroundScrolling()
-            backgroundY = 0f
+            // Background scrolling handled by individual levels
 
             // Preload and start opening dialogue when story content is enabled
             if (shouldShowStoryContent) {
@@ -869,6 +844,12 @@ import kotlinx.coroutines.launch
 
             val coinsThisGame = (localCoin - coinBeforePlay).coerceAtLeast(0) // Phòng trường hợp âm
             LeaderboardUtils.saveScore(context, coinsThisGame)
+            
+            // Lưu thời gian hoàn thành nếu game đã hoàn thành
+            if (gameCompletionTime > 0) {
+                val completionTimeMs = gameCompletionTime - gameStartTime
+                LeaderboardUtils.saveCompletionTime(context, completionTimeMs)
+            }
 
             mediaPlayer?.release()
             mediaPlayer = null
@@ -1058,10 +1039,7 @@ import kotlinx.coroutines.launch
             // Check for boss encounter first
             checkBossEncounter()
             
-            // Background scrolling update (chỉ cuộn khi không có boss)
-            if (!bossEncountered || bossDefeated) {
-                updateBackgroundScrolling()
-            }
+            // Background scrolling handled by individual levels
 
             // nếu hết mạng thì mở game over - check if currentLevel exists first
             if (::currentLevel.isInitialized && currentLevel.getLives() <= 0) {
@@ -1084,7 +1062,13 @@ import kotlinx.coroutines.launch
                     if (level < maxLevel) {
                         startBossFlyAwayAnimation()
                     } else {
-                        startPlaneLaunchAnimation()
+                        // Check if Level3 needs plane launch (it doesn't)
+                        if (currentLevel is Level3) {
+                            // Level3: just show congratulations, no plane movement
+                            showFinalCongratulations()
+                        } else {
+                            startPlaneLaunchAnimation()
+                        }
                     }
                 }
                 return
@@ -1105,12 +1089,12 @@ import kotlinx.coroutines.launch
                 val offset = 40
                 when (gunMode) {
                     GunMode.NORMAL, GunMode.FAST -> {
-                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 222, 90.0))
+                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 90.0))
                         if (isSoundOn) soundPool.play(gunshotSoundId, 1f, 1f, 1, 0, 1f)
                     }
 
                     GunMode.TRIPLE_PARALLEL -> {
-                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 222, 90.0))
+                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 90.0))
                         bullets.add(Bullet(center - offset, bulletY, bulletBitmap, 30, 2, 90.0))
                         bullets.add(Bullet(center + offset, bulletY, bulletBitmap, 30, 2, 90.0))
 
@@ -1118,7 +1102,7 @@ import kotlinx.coroutines.launch
                     }
 
                     GunMode.TRIPLE_SPREAD -> {
-                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 222, 90.0))
+                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 90.0))
                         bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 110.0))
                         bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 70.0))
                         if (isSoundOn) soundPool.play(gunshotSoundId, 1f, 1f, 1, 0, 1f)
@@ -1152,27 +1136,44 @@ import kotlinx.coroutines.launch
                 when (currentLevel) {
                     is Level1 -> {
                         val level = currentLevel as Level1
+                        // Cập nhật số gà đã giết trước khi xóa
+                        val killedChickens = level.chickens.size
+                        level.waveEnemiesKilled += killedChickens
+                        level.enemiesKilled += killedChickens
                         level.chickens.clear()
                         level.boss?.let { boss ->
                             boss.hp -= 50 // trừ 50 máu, có thể chỉnh tùy ý
                             if (boss.hp < 0) boss.hp = 0
                         }
+                        // Reset wave timer để spawn wave tiếp theo
+                        level.waveTimer = 0
                     }
                     is Level2 -> {
                         val level = currentLevel as Level2
+                        // Cập nhật số gà đã giết trước khi xóa
+                        val killedChickens = level.chickens.size
+                        level.waveEnemiesKilled += killedChickens
+                        level.enemiesKilled += killedChickens
                         level.chickens.clear()
                         level.boss?.let { boss ->
                             boss.hp -= 50
                             if (boss.hp < 0) boss.hp = 0
                         }
+                        // Reset wave timer để spawn wave tiếp theo
+                        level.waveTimer = 0
                     }
                     is Level3 -> {
                         val level = currentLevel as Level3
+                        // Cập nhật số gà đã giết trước khi xóa
+                        val killedChickens = level.chickens.size
+                        level.enemiesKilled += killedChickens
                         level.chickens.clear()
                         level.boss?.let { boss ->
                             boss.hp -= 50
                             if (boss.hp < 0) boss.hp = 0
                         }
+                        // Reset wave timer để spawn wave tiếp theo
+                        level.waveTimer = 0
                     }
                 }
             }
@@ -1241,7 +1242,7 @@ import kotlinx.coroutines.launch
             // Vẽ gameplay chỉ khi không phải INTRO phase và currentLevel đã được khởi tạo
             if (phase != Phase.INTRO && ::currentLevel.isInitialized) {
                 // Draw background with scrolling effect
-                currentLevel.draw(canvas, bullets, backgroundY)
+                currentLevel.draw(canvas, bullets, 0f)
             }
 
             val paint = uiPaint

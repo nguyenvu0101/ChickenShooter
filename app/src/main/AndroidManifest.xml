@@ -17,6 +17,9 @@
         <activity
             android:name=".CartActivity"
             android:exported="false" />
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false" />
         <!-- 1) Start Menu (Main entry point) -->
         <activity android:name=".LeaderboardActivity"/>
         <activity

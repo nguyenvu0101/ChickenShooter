@@ -13,7 +13,8 @@ class BossChicken(
     private var vy: Int, // tốc độ dọc
     private val eggBitmap: Bitmap,
     private val screenWidth: Int,
-    private val screenHeight: Int
+    private val screenHeight: Int,
+    private val eggCount: Int = 3 // số lượng đạn bắn
 ) {
     private val eggShootInterval = 1500L
     private var lastEggShootTime: Long = 0
@@ -55,8 +56,13 @@ class BossChicken(
     }
 
     private fun shootEggs(eggs: MutableList<Egg>) {
-        val angles = listOf(60f, 80f , 100f, 120f, 140f)
-        for (angle in angles) {
+        // Tính toán góc dựa trên số lượng đạn
+        val startAngle = 80f
+        val endAngle = 120f
+        val angleStep = if (eggCount > 1) (endAngle - startAngle) / (eggCount - 1) else 0f
+        
+        for (i in 0 until eggCount) {
+            val angle = startAngle + (i * angleStep)
             eggs.add(
                 Egg(
                     x + bitmap.width / 2 - eggBitmap.width / 2,

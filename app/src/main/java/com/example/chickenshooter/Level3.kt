@@ -107,37 +107,58 @@ class Level3(
 
     private var levelTimer = 0
     private val levelDuration = 5 * 60
-    private var waveTimer = 0
+    var waveTimer = 0
     private val waveInterval = 120 // số frame cho mỗi đợt (2 giây nếu 60fps)
-    private var enemiesKilled = 0
-    private val requiredKills = 25 // Boss spawns after killing 25 enemies
+    private val initialDelay = 60 // Delay trước khi spawn wave đầu tiên (1 giây)
+    var enemiesKilled = 0
+    // Boss spawns immediately in Level3 (no kill requirement)
 
     override var pickedGunMode: GunMode? = null
 
     override fun update(bullets: MutableList<Bullet>) {
         if (isLevelFinished) return
 
-        scrollBackground?.update()
+        // No background scrolling in Level3
         levelTimer++
         waveTimer++
-        if (waveTimer >= waveInterval && !isBossSpawned) {
+        
+        // Flag để tránh trừ nhiều mạng cùng lúc
+        var playerHitThisFrame = false
+        
+        // Spawn waves continuously (even with boss present)
+        if (waveTimer >= initialDelay) {
+            // Check if it's time for the next wave
+            val timeForNextWave = initialDelay + (waveIndex * waveInterval)
+            if (waveTimer >= timeForNextWave) {
+                val pattern = wavePatterns[waveIndex % wavePatterns.size]
+                spawnWave(pattern)
+                waveIndex++
+            }
+        }
+        
+        // Spawn wave after 5 seconds delay if waveTimer was reset (after missile explosion)
+        if (waveTimer == 0 && waveIndex > 0) {
+            // Set waveTimer to start countdown for 5 seconds (300 frames at 60fps)
+            waveTimer = -300
+        }
+        if (waveTimer == -300 + 300 && waveIndex > 0) {
             val pattern = wavePatterns[waveIndex % wavePatterns.size]
             spawnWave(pattern)
             waveIndex++
-            waveTimer = 0
         }
-        // Spawn boss sau khi giết đủ số quái
-        if (!isBossSpawned && enemiesKilled >= requiredKills) {
+        // Spawn boss immediately in Level3
+        if (!isBossSpawned) {
             boss = BossChicken(
                 x = (context.resources.displayMetrics.widthPixels - bossScaledBitmap.width) / 2,
                 y = 50,
                 bitmap = bossScaledBitmap,
-                hp = 200,
-                vx = 6,
-                vy = 3,
+                hp = 300,
+                vx = 3,
+                vy = 2,
                 eggBitmap = eggBitmap,
                 screenWidth = context.resources.displayMetrics.widthPixels,
-                screenHeight = context.resources.displayMetrics.heightPixels
+                screenHeight = context.resources.displayMetrics.heightPixels,
+                eggCount = 5 // Level3: 5 tia
             )
             isBossSpawned = true
         }
@@ -155,21 +176,24 @@ class Level3(
         // Bullet - Chicken collision
         handleBulletChickenCollision(chickens, bullets) { chicken ->
             enemiesKilled++
-            if ((0..99).random() < 3) spawnShield(chicken.x.toInt(), chicken.y.toInt())
-            if ((0..99).random() < 3) spawnHealthItem(chicken.x.toInt(), chicken.y.toInt())
-            if ((0..99).random() < 3) {
+            if ((0..99).random() < 5) spawnShield(chicken.x.toInt(), chicken.y.toInt())
+            if ((0..99).random() < 5) spawnHealthItem(chicken.x.toInt(), chicken.y.toInt())
+            if ((0..99).random() < 4) {
                 val itemType = ItemType.values()[(0..2).random()]
                 spawnGunItem(chicken.x.toInt(), chicken.y.toInt(), itemType)
             }
-            if (Math.random() < 0.03) spawnMana(chicken.x.toInt(), chicken.y.toInt(), manaBitmap, 8)
+            if (Math.random() < 0.075) spawnMana(chicken.x.toInt(), chicken.y.toInt(), manaBitmap, 8)
             spawnCoin(chicken.x.toInt(), chicken.y.toInt(), chicken.bitmap.width, chicken.bitmap.height)
         }
 
         // Player - Chicken collision
         handlePlayerChickenCollision(chickens, 
             onPlayerHit = { 
-                lives--
-                player.hit(playerExplosionFrames)
+                if (!playerHitThisFrame && !player.isInvulnerable()) {
+                    lives--
+                    player.hit(playerExplosionFrames)
+                    playerHitThisFrame = true
+                }
             },
             onEnemyKilled = { enemiesKilled++ }
         )
@@ -189,8 +213,11 @@ class Level3(
         }
         handleBossCollision(boss, bullets,
             onPlayerHit = { 
-                lives--
-                player.hit(playerExplosionFrames)
+                if (!playerHitThisFrame && !player.isInvulnerable()) {
+                    lives--
+                    player.hit(playerExplosionFrames)
+                    playerHitThisFrame = true
+                }
             },
             onBossDefeated = {
                 isLevelFinished = true
@@ -238,7 +265,11 @@ class Level3(
     }
 
     override fun draw(canvas: Canvas, bullets: List<Bullet>, backgroundY: Float) {
-        scrollBackground?.draw(canvas)
+        // Draw static background for Level3 (no scrolling)
+        val backgroundBitmap = getBackground()
+        val scaledBackground = Bitmap.createScaledBitmap(backgroundBitmap, canvas.width, canvas.height, true)
+        canvas.drawBitmap(scaledBackground, 0f, 0f, null)
+        
         player.draw(canvas)
         chickens.forEach { it.draw(canvas) }
         bullets.forEach { it.draw(canvas) }
@@ -276,8 +307,6 @@ class Level3(
         }
     }
 
-    override fun isCompleted(): Boolean = isLevelFinished
-    
     override fun isBossSpawned(): Boolean = isBossSpawned
 
     override fun reset() {
@@ -302,6 +331,18 @@ class Level3(
     }
     override fun getBackground(): Bitmap = background
     override fun getLives(): Int = lives
+    
+    // Override to prevent plane launch animation for Level3
+    override fun isCompleted(): Boolean {
+        if (isLevelFinished) {
+            // Level3 specific: just show congratulations, no plane movement
+            return true
+        }
+        return false
+    }
+    
+    // Level3 specific: no plane launch needed
+    fun needsPlaneLaunch(): Boolean = false
 
     override fun cleanup() {
         try {
