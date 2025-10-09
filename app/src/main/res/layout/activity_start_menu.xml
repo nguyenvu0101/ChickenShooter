@@ -123,7 +123,7 @@
                     android:layout_width="60dp"
                     android:layout_height="84dp"
                     android:layout_marginEnd="20dp"
-                    android:src="@drawable/background"
+                    android:src="@drawable/background_v2"
                     android:scaleType="fitCenter"
                     android:padding="3dp"
                     android:background="@android:color/transparent"/>
@@ -132,7 +132,7 @@
                     android:id="@+id/bg2Img"
                     android:layout_width="53dp"
                     android:layout_height="84dp"
-                    android:src="@drawable/background2"
+                    android:src="@drawable/background2_v2"
                     android:scaleType="fitCenter"
                     android:padding="3dp"
                     android:background="@android:color/transparent"/>

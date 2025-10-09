@@ -231,7 +231,8 @@ class Level3(
                     moveType = moveType,
                     hp = chickenHp,
                     screenWidth = screenW,
-                    screenHeight = screenH
+                    screenHeight = screenH,
+                    shootChance = 60
                 )
             )
         }

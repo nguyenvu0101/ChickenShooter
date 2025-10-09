@@ -9,7 +9,6 @@ package com.example.chickenshooter
     import android.graphics.Rect
     import android.graphics.RectF
     import android.graphics.Path
-    import android.graphics.PointF
     import android.view.MotionEvent
     import android.view.SurfaceHolder
     import android.view.SurfaceView

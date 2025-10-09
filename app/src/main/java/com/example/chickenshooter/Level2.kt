@@ -11,6 +11,7 @@ import com.example.chickenshooter.R
 import com.example.chickenshooter.utils.SpriteUtils
 import kotlin.random.Random
 import android.graphics.Color
+
 class Level2(
     context: Context,
     player: Player,
@@ -38,15 +39,12 @@ class Level2(
         (healthItemBitmap.height * 0.07).toInt(),
         true
     )
-    
+
     init {
-        // Initialize BaseLevel systems
         setShieldBitmap(scaledShieldBitmap)
         setHealthItemBitmap(scaledHealthItemBitmap)
-        
-        // Set up callbacks
         onHealthCollected = { lives++ }
-        onEggHit = { 
+        onEggHit = {
             lives--
             player.hit(playerExplosionFrames)
         }
@@ -110,8 +108,8 @@ class Level2(
     private var waveTimer = 0
     private val waveInterval = 120 // số frame cho mỗi đợt (2 giây nếu 60fps)
     private var enemiesKilled = 0
-    private val requiredKills = 40 // Boss spawns after killing 20 enemies
-
+    private val requiredKills = 40 // Boss spawns after killing 40 enemies
+    internal val allProjectiles = mutableListOf<ChickenProjectile>()
     override var pickedGunMode: GunMode? = null
 
     override fun update(bullets: MutableList<Bullet>) {
@@ -145,12 +143,17 @@ class Level2(
         // Update chickens
         val playerCenterX = player.x + player.getRect().width() / 2f
         val playerCenterY = player.y + player.getRect().height() / 2f
+
         chickens.forEach { chicken ->
             chicken.update(playerCenterX, playerCenterY)
+            if (chicken.projectiles.isNotEmpty()) {
+                allProjectiles.addAll(chicken.projectiles)
+                chicken.projectiles.clear()
+            }
         }
 
-        // ... (tất cả logic xử lý items, bullets, collision, boss, ... giữ nguyên như trước) ...
-        // --- Dưới đây chỉ là các phần còn lại giữ nguyên, đã rút gọn cho phần spawn gà theo đợt là chính ---
+        // Gà bị bắn chết sẽ được gom vào danh sách tạm, xóa sau khi lặp xong
+        val toRemove = mutableListOf<Chicken>()
 
         // Bullet - Chicken collision
         handleBulletChickenCollision(chickens, bullets) { chicken ->
@@ -163,11 +166,20 @@ class Level2(
             }
             if (Math.random() < 0.03) spawnMana(chicken.x.toInt(), chicken.y.toInt(), manaBitmap, 8)
             spawnCoin(chicken.x.toInt(), chicken.y.toInt(), chicken.bitmap.width, chicken.bitmap.height)
+            // Trước khi xóa, chuyển projectiles sang allProjectiles
+            if (chicken.projectiles.isNotEmpty()) {
+                allProjectiles.addAll(chicken.projectiles)
+                chicken.projectiles.clear()
+            }
+            // Thêm gà vào danh sách cần xóa
+            toRemove.add(chicken)
         }
+        // Sau khi xử lý va chạm, xóa tất cả gà bị bắn chết
+        chickens.removeAll(toRemove)
 
         // Player - Chicken collision
-        handlePlayerChickenCollision(chickens, 
-            onPlayerHit = { 
+        handlePlayerChickenCollision(chickens,
+            onPlayerHit = {
                 lives--
                 player.hit(playerExplosionFrames)
             },
@@ -176,8 +188,6 @@ class Level2(
 
         // Update BaseLevel systems
         updateGunItems()
-
-        // Update coins, mana, shields, health items
         updateCoins()
         updateMana()
         updateShields()
@@ -188,7 +198,7 @@ class Level2(
             b.update(System.currentTimeMillis(), eggs)
         }
         handleBossCollision(boss, bullets,
-            onPlayerHit = { 
+            onPlayerHit = {
                 lives--
                 player.hit(playerExplosionFrames)
             },
@@ -205,6 +215,23 @@ class Level2(
         if (lives <= 0) isLevelFinished = true
 
         player.update()
+        // Update projectiles của gà (trứng, shit...)
+        val projIterator = allProjectiles.iterator()
+        while (projIterator.hasNext()) {
+            val projectile = projIterator.next()
+            projectile.update()
+            // Nếu vượt màn hình thì xóa
+            if (projectile.y > context.resources.displayMetrics.heightPixels)
+                projIterator.remove()
+        }
+        // Xử lý va chạm projectiles với player
+        val playerRect = player.getRect()
+        val hitProjectiles = allProjectiles.filter { CollisionUtils.isColliding(it.getRect(), playerRect) }
+        for (proj in hitProjectiles) {
+            lives--
+            player.hit(playerExplosionFrames)
+        }
+        allProjectiles.removeAll(hitProjectiles)
     }
 
     /**
@@ -219,7 +246,6 @@ class Level2(
             availableWidth.toFloat() / (numChickens - 1)
         else 0f
 
-        // Hàng ngang đơn giản cho Level2
         for (i in 0 until numChickens) {
             val x = i * spacing
             chickens.add(
@@ -231,7 +257,8 @@ class Level2(
                     moveType = moveType,
                     hp = chickenHp,
                     screenWidth = screenW,
-                    screenHeight = screenH
+                    screenHeight = screenH,
+                    shootChance = 30 // gà bắn ra với xác suất 30% (ít hơn level 3)
                 )
             )
         }
@@ -249,6 +276,7 @@ class Level2(
         drawCoins(canvas)
         drawMana(canvas)
         drawEggs(canvas)
+        allProjectiles.forEach { it.draw(canvas) }
         boss?.draw(canvas)
         boss?.let { b ->
             val barWidth = canvas.width * 2 / 3
@@ -277,11 +305,10 @@ class Level2(
     }
 
     override fun isCompleted(): Boolean = isLevelFinished
-    
     override fun isBossSpawned(): Boolean = isBossSpawned
 
     override fun reset() {
-        super.cleanup() // Clear BaseLevel systems
+        super.cleanup()
         chickens.clear()
         boss = null
         isBossSpawned = false
@@ -292,6 +319,7 @@ class Level2(
         waveTimer = 0
         enemiesKilled = 0
         pickedGunMode = null
+        allProjectiles.clear()
         saveCoinsToSystem()
     }
 
@@ -308,6 +336,7 @@ class Level2(
             super.cleanup()
             chickens.clear()
             boss = null
+            allProjectiles.clear()
         } catch (_: Exception) {}
     }
 }

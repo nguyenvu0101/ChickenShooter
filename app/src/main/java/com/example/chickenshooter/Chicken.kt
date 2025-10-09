@@ -24,7 +24,8 @@ class Chicken(
     val moveType: MoveType,
     var hp: Int,
     val screenWidth: Int,
-    val screenHeight: Int
+    val screenHeight: Int,
+    val shootChance: Int = 0
 ) {
     private var tick = 0
     private var lastShotTime = 0L
@@ -54,7 +55,7 @@ class Chicken(
         val currentTime = System.currentTimeMillis()
 
         // Bắn: mỗi gà chỉ bắn 1 viên trong đời
-        if (!hasShot && y in 0f..screenHeight.toFloat()) {
+        if (!hasShot && shootChance > 0 && y in 0f..screenHeight.toFloat()) {
             shoot(playerX, playerY)
             lastShotTime = currentTime
             hasShot = true
@@ -205,12 +206,10 @@ class Chicken(
         val centerY = y + bitmap.height
         if (projectiles.isNotEmpty()) return // chỉ 1 viên mỗi con gà
 
-        if ((0..99).random() < 40) {
-            // 50/50 EGG hoặc SHIT
+        if ((0..99).random() < shootChance) {
             val type = if (Random.nextBoolean()) ProjectileType.EGG else ProjectileType.SHIT
             projectiles.add(ChickenProjectile(centerX, centerY, 0f, 8f, type))
         }
-        // Còn lại 65% không bắn gì cả
     }
 
     fun getRect(): Rect = Rect(
