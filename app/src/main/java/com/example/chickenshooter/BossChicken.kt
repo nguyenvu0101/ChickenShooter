@@ -16,7 +16,7 @@ class BossChicken(
     private val screenHeight: Int,
     private val eggCount: Int = 3 // số lượng đạn bắn
 ) {
-    private val eggShootInterval = 1500L
+    private val eggShootInterval = 3000L
     private var lastEggShootTime: Long = 0
     val maxHp: Int = hp
 
@@ -68,7 +68,7 @@ class BossChicken(
                     x + bitmap.width / 2 - eggBitmap.width / 2,
                     y + bitmap.height,
                     eggBitmap,
-                    speed = 15f,
+                    speed = 7.5f,
                     angleDegree = angle,
                     screenHeight = this.screenHeight,
                     screenWidth = this.screenWidth

@@ -91,6 +91,7 @@ class Level3(
         true
     )
 
+    private val allProjectiles = mutableListOf<ChickenProjectile>()
     internal val chickens = mutableListOf<Chicken>()
     var boss: BossChicken? = null
     private var isBossSpawned = false
@@ -163,11 +164,38 @@ class Level3(
             isBossSpawned = true
         }
 
-        // Update chickens
+        // === Update chickens + gom projectiles ===
         val playerCenterX = player.x + player.getRect().width() / 2f
         val playerCenterY = player.y + player.getRect().height() / 2f
-        chickens.forEach { chicken ->
+        for (chicken in chickens) {
             chicken.update(playerCenterX, playerCenterY)
+            if (chicken.projectiles.isNotEmpty()) {
+                allProjectiles.addAll(chicken.projectiles)
+                chicken.projectiles.clear()
+            }
+        }
+
+        // === ChickenProjectile vs Player ===
+        val hitProjectiles = allProjectiles.filter {
+            CollisionUtils.isColliding(it.getRect(), player.getRect())
+        }
+        if (hitProjectiles.isNotEmpty() && !playerHitThisFrame) {
+            if (!player.isInvulnerable()) {
+                player.hit(playerExplosionFrames)
+                lives--
+                playerHitThisFrame = true
+            }
+        }
+        allProjectiles.removeAll(hitProjectiles)
+
+        // Update & cắt projectile out-of-screen
+        val screenW = context.resources.displayMetrics.widthPixels
+        val screenH = context.resources.displayMetrics.heightPixels
+        val projIt = allProjectiles.iterator()
+        while (projIt.hasNext()) {
+            val p = projIt.next()
+            p.update()
+            if (p.y > screenH) projIt.remove()
         }
 
         // ... (tất cả logic xử lý items, bullets, collision, boss, ... giữ nguyên như trước) ...
@@ -280,6 +308,9 @@ class Level3(
         drawCoins(canvas)
         drawMana(canvas)
         drawEggs(canvas)
+        for (proj in allProjectiles) {
+            proj.draw(canvas)
+        }
         boss?.draw(canvas)
         boss?.let { b ->
             val barWidth = canvas.width * 2 / 3

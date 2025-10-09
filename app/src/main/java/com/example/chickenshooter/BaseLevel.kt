@@ -190,7 +190,7 @@ abstract class BaseLevel(
         // Check egg collision with player
         val hitEgg = eggs.firstOrNull { CollisionUtils.isColliding(it.getRect(), player.getRect()) }
         if (hitEgg != null) {
-            if (!player.hasShield) {
+            if (!player.hasShield && !player.isInvulnerable()) {
                 onEggHit?.invoke()
             }
             eggs.remove(hitEgg)
