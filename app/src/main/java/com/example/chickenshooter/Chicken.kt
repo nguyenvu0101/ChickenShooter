@@ -223,8 +223,8 @@ class Chicken(
         projectiles.forEach { it.draw(canvas) }
     }
 
-    // Không cho gà tự biến mất khi ra khỏi màn hình
-    fun isOffScreen(): Boolean = false
+    // Kiểm tra gà có ra khỏi màn hình không
+    fun isOffScreen(): Boolean = y > screenHeight + 100
 }
 
 enum class ProjectileType { SHIT, EGG }

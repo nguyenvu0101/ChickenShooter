@@ -123,6 +123,19 @@ class Level2(
         // Flag để tránh trừ nhiều mạng cùng lúc
         var playerHitThisFrame = false
 
+        // === BUG FIX: Xóa gà khi ra khỏi màn hình (PHẢI ĐẶT TRƯỚC LOGIC SPAWN BOSS) ===
+        val screenW = context.resources.displayMetrics.widthPixels
+        val screenH = context.resources.displayMetrics.heightPixels
+        val chickenIt = chickens.iterator()
+        while (chickenIt.hasNext()) {
+            val chicken = chickenIt.next()
+            // Xóa gà khi bay ra khỏi màn hình (y > screenHeight + 100 để tránh xóa quá sớm)
+            if (chicken.y > screenH + 100) {
+                chickenIt.remove()
+                android.util.Log.d("Level2", "Removed chicken at y=${chicken.y}, screenH=$screenH")
+            }
+        }
+
         // === Điều khiển spawn formation ===
         if (!isBossSpawned && enemiesKilled < targetEnemies) {
             // Tăng spawn timer mỗi frame
@@ -132,12 +145,15 @@ class Level2(
             if (spawnTimer >= spawnInterval) {
                 val randomFormation = formationPatterns.random()
                 val randomCount = (8..16).random()
+                android.util.Log.d("Level2", "Spawning formation: enemiesKilled=$enemiesKilled, targetEnemies=$targetEnemies, count=$randomCount")
                 spawnFormation(randomFormation, randomCount)
                 spawnTimer = 0
             }
         } else if (enemiesKilled >= targetEnemies && !isBossSpawned) {
             // Đã đủ 66 gà, kiểm tra tất cả quái đã bị tiêu diệt hết chưa
+            android.util.Log.d("Level2", "Checking boss spawn: enemiesKilled=$enemiesKilled, targetEnemies=$targetEnemies, chickens.size=${chickens.size}, isBossSpawned=$isBossSpawned")
             if (chickens.isEmpty() && boss == null) {
+                android.util.Log.d("Level2", "Spawning boss: enemiesKilled=$enemiesKilled, chickens.size=${chickens.size}")
                 spawnBoss()
             }
         }
@@ -167,8 +183,6 @@ class Level2(
         allProjectiles.removeAll(hitProjectiles)
 
         // Update & cắt projectile out-of-screen
-        val screenW = context.resources.displayMetrics.widthPixels
-        val screenH = context.resources.displayMetrics.heightPixels
         val projIt = allProjectiles.iterator()
         while (projIt.hasNext()) {
             val p = projIt.next()
