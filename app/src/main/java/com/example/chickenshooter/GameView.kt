@@ -144,6 +144,10 @@ import kotlinx.coroutines.launch
         private var gameCompletionTime: Long = 0L
         private lateinit var currentLevel: BaseLevel
         
+        // Bộ đếm thời gian chơi game (không reset khi gameover)
+        private var gamePlayStartTime: Long = 0L
+        private var isGamePlayStarted: Boolean = false
+        
         // Auto background selection based on level
         private fun getBackgroundForLevel(level: Int): Int {
             return when (level) {
@@ -636,6 +640,13 @@ import kotlinx.coroutines.launch
         fun startLevel(newLevel: Int) {
             android.util.Log.d("GameView", "startLevel($newLevel) called")
             
+            // Khởi tạo bộ đếm thời gian chơi game (chỉ lần đầu)
+            if (!isGamePlayStarted) {
+                gamePlayStartTime = System.currentTimeMillis()
+                isGamePlayStarted = true
+                android.util.Log.d("GameView", "Game play timer started")
+            }
+            
             // RACE CONDITION FIX: Synchronize level creation to prevent currentLevel access before ready
             synchronized(this) {
                 level = newLevel
@@ -845,10 +856,12 @@ import kotlinx.coroutines.launch
             val coinsThisGame = (localCoin - coinBeforePlay).coerceAtLeast(0) // Phòng trường hợp âm
             LeaderboardUtils.saveScore(context, coinsThisGame)
             
-            // Lưu thời gian hoàn thành nếu game đã hoàn thành
-            if (gameCompletionTime > 0) {
-                val completionTimeMs = gameCompletionTime - gameStartTime
-                LeaderboardUtils.saveCompletionTime(context, completionTimeMs)
+            // Lưu thời gian chơi game vào bảng xếp hạng (không reset khi gameover)
+            if (isGamePlayStarted) {
+                val currentTime = System.currentTimeMillis()
+                val totalPlayTimeMs = currentTime - gamePlayStartTime
+                LeaderboardUtils.saveCompletionTime(context, totalPlayTimeMs)
+                android.util.Log.d("GameView", "Saved total play time: ${totalPlayTimeMs}ms")
             }
 
             mediaPlayer?.release()
@@ -1261,18 +1274,27 @@ import kotlinx.coroutines.launch
                 }
             }
 
-            // Vẽ số xu
-            paint.color = Color.YELLOW
+            // Vẽ bộ đếm thời gian thay thế cho số xu
+            paint.color = Color.CYAN
             paint.textSize = 48f
             paint.textAlign = Paint.Align.RIGHT
-            val coinTextX = width - 32f
-            val coinTextY = 80f
-            canvas.drawText("Xu: $localCoin", coinTextX, coinTextY, paint)
+            val timerTextX = width - 32f
+            val timerTextY = 80f
+            
+            // Tính thời gian đã chơi (không reset khi gameover)
+            val currentTime = System.currentTimeMillis()
+            val elapsedTime = currentTime - gamePlayStartTime
+            val totalSeconds = elapsedTime / 1000
+            val minutes = totalSeconds / 60
+            val seconds = totalSeconds % 60
+            
+            val timeText = String.format("%d:%02d", minutes, seconds)
+            canvas.drawText(timeText, timerTextX, timerTextY, paint)
 
-            // Vẽ nút pause/play bên trái chữ xu
+            // Vẽ nút pause/play bên trái bộ đếm thời gian
             val pauseBtnSize = 48f
-            val pauseBtnX = coinTextX - pauseBtnSize - 200f
-            val pauseBtnY = coinTextY - pauseBtnSize + 8f
+            val pauseBtnX = timerTextX - pauseBtnSize - 200f
+            val pauseBtnY = timerTextY - pauseBtnSize + 8f
             pauseButtonRect = Rect(
                 pauseBtnX.toInt(),
                 pauseBtnY.toInt(),
