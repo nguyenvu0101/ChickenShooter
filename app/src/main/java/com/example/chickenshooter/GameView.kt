@@ -95,13 +95,11 @@ import kotlinx.coroutines.launch
         private var isMoving = false
 
         // Sound effect variables
-        private var borderSoundId: Int = 0
 
         // âm thanh
         private lateinit var soundPool: SoundPool
         private var gunshotSoundId: Int = 0
         private var missileSoundId: Int = 0
-        private var warningSoundId: Int = 0
         private var congratulationsSoundId: Int = 0
 
         // Thêm biến trạng thái
@@ -117,8 +115,7 @@ import kotlinx.coroutines.launch
         private val levelMusicResIds = listOf(
             R.raw.music_level1,
             R.raw.music_level2,
-            R.raw.music_level3,
-            R.raw.music_level4
+            R.raw.music_level3
         )
         // Bitmap cho các icon bật/tắt nhạc nền và âm thanh
         private val musicOnBitmap = BitmapFactory.decodeResource(resources, R.drawable.music_turnon)
@@ -148,7 +145,6 @@ import kotlinx.coroutines.launch
                 1 -> R.drawable.background
                 2 -> R.drawable.background2
                 3 -> R.drawable.background3
-                4 -> R.drawable.background4
                 else -> R.drawable.background
             }
         }
@@ -482,8 +478,7 @@ import kotlinx.coroutines.launch
         private val RESCUED_BY_LEVEL = mapOf(
             1 to Speaker.SOL,
             2 to Speaker.KICM,
-            3 to Speaker.THIEN_AN,
-            4 to Speaker.FIREFLIES
+            3 to Speaker.THIEN_AN
         )
 
        private val STORY = mapOf(
@@ -529,19 +524,6 @@ import kotlinx.coroutines.launch
         ))
     ),
 
-    4 to LevelScript(
-        // Rescued: FIREFLIES
-        opening = DialogueScene(listOf(
-            DialogueLine(Speaker.JACK,      "Đom Đóm, tụ lại! Ánh sáng nhỏ của các em dẫn đường cho cả hạm đội!"),
-            DialogueLine(Speaker.FIREFLIES, "Chúng em chớp cánh theo nhịp anh! Tối mấy cũng cứ bừng lên!"),
-            DialogueLine(Speaker.BOSS,      "Lấp lánh vô nghĩa! Ta phủ bóng đêm lên từng đốm sáng bé nhỏ!")
-        )),
-        ending = DialogueScene(listOf(
-            DialogueLine(Speaker.JACK,      "Tự do rồi, Đom Đóm! Hãy bay và thắp sao vào từng vệt trời."),
-            DialogueLine(Speaker.FIREFLIES, "Có anh, chúng em không lạc nữa! Chớp—chớp—thành dải ngân hà!"),
-            DialogueLine(Speaker.BOSS,      "Được lắm… lần sau ta mang theo nhật thực vĩnh cửu!")
-        ))
-    )
 )
 
         init {
@@ -594,8 +576,6 @@ import kotlinx.coroutines.launch
             soundPool = SoundPool.Builder().setMaxStreams(5).build()
             gunshotSoundId = soundPool.load(context, R.raw.laser, 1)
             missileSoundId = soundPool.load(context, R.raw.tieng_bom_no, 1)
-            borderSoundId = soundPool.load(context, R.raw.border, 1)
-            warningSoundId = soundPool.load(context, R.raw.warning, 1)
             congratulationsSoundId = soundPool.load(context, R.raw.congratulation, 1)
 
             // Initialize target positions for smooth movement
@@ -1125,12 +1105,12 @@ import kotlinx.coroutines.launch
                 val offset = 40
                 when (gunMode) {
                     GunMode.NORMAL, GunMode.FAST -> {
-                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 90.0))
+                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 222, 90.0))
                         if (isSoundOn) soundPool.play(gunshotSoundId, 1f, 1f, 1, 0, 1f)
                     }
 
                     GunMode.TRIPLE_PARALLEL -> {
-                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 90.0))
+                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 222, 90.0))
                         bullets.add(Bullet(center - offset, bulletY, bulletBitmap, 30, 2, 90.0))
                         bullets.add(Bullet(center + offset, bulletY, bulletBitmap, 30, 2, 90.0))
 
@@ -1138,7 +1118,7 @@ import kotlinx.coroutines.launch
                     }
 
                     GunMode.TRIPLE_SPREAD -> {
-                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 90.0))
+                        bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 222, 90.0))
                         bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 110.0))
                         bullets.add(Bullet(center, bulletY, bulletBitmap, 30, 2, 70.0))
                         if (isSoundOn) soundPool.play(gunshotSoundId, 1f, 1f, 1, 0, 1f)
@@ -1222,18 +1202,18 @@ import kotlinx.coroutines.launch
                 }
             }
 
-            // Kiểm tra va chạm với biên màn hình và phát âm thanh (trừ biên dưới)
+            // Kiểm tra va chạm với biên màn hình (không phát âm thanh)
             val borderThreshold = 5f // ngưỡng để tránh phát âm liên tục
             if (player.x <= borderThreshold || player.x >= width - playerBitmap.width - borderThreshold ||
                 player.y <= borderThreshold) { // Removed bottom border check
-                if (isSoundOn) soundPool.play(gunshotSoundId, 1f, 1f, 1, 0, 1f)
+                // Âm thanh va chạm đã được xóa bỏ
             }
 
             // Giới hạn player trong màn hình
             player.x = player.x.coerceIn(0, width - playerBitmap.width)
             player.y = player.y.coerceIn(0, height - playerBitmap.height)
 
-            // Kiểm tra cảnh báo khi máy bay vượt qua 1/2 màn hình
+            // Kiểm tra cảnh báo khi máy bay vượt qua 1/2 màn hình (không phát âm thanh)
             val halfScreenY = height / 2
             val playerCenterY = player.y + playerBitmap.height / 2
 
@@ -1244,7 +1224,7 @@ import kotlinx.coroutines.launch
 
             // Kiểm tra nếu máy bay vượt qua 1/2 màn hình và chưa phát warning gần đây
             if (playerCenterY <= halfScreenY && !hasPlayedWarning && warningCooldown <= 0) {
-                if (isSoundOn) soundPool.play(warningSoundId, 0.7f, 0.7f, 1, 0, 1f)
+                // Âm thanh cảnh báo đã được xóa bỏ
                 hasPlayedWarning = true
                 warningCooldown = warningCooldownDuration
             }

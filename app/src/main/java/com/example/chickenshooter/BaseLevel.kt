@@ -7,6 +7,7 @@ import android.graphics.Rect
 import android.graphics.Paint
 import android.graphics.Color
 import com.example.chickenshooter.*
+import com.example.chickenshooter.utils.CollisionUtils
 
 abstract class BaseLevel(
     val context: Context,
@@ -80,6 +81,183 @@ abstract class BaseLevel(
     protected val manaItems = mutableListOf<Item>()
     var onManaCollected: ((amount: Int) -> Unit)? = null
 
+    // ----------- Shield System ------------
+    protected val shields = mutableListOf<Shield>()
+    private var shieldBitmap: Bitmap? = null
+    
+    fun setShieldBitmap(bitmap: Bitmap) {
+        shieldBitmap = bitmap
+    }
+    
+    open fun spawnShield(x: Int, y: Int) {
+        shieldBitmap?.let { bitmap ->
+            shields.add(Shield(x, y, bitmap, 5))
+        }
+    }
+    
+    open fun updateShields() {
+        shields.forEach { it.update() }
+        shields.removeAll { it.y > scrH }
+        
+        // Collect shields
+        val collectedShields = shields.filter { CollisionUtils.isColliding(it.getRect(), player.getRect()) }
+        for (shield in collectedShields) {
+            player.activateShield(6000)
+        }
+        shields.removeAll(collectedShields)
+    }
+    
+    open fun drawShields(canvas: Canvas) {
+        shields.forEach { it.draw(canvas) }
+    }
+
+    // ----------- Health Items System ------------
+    protected val healthItems = mutableListOf<HealthItem>()
+    private var healthItemBitmap: Bitmap? = null
+    
+    fun setHealthItemBitmap(bitmap: Bitmap) {
+        healthItemBitmap = bitmap
+    }
+    
+    open fun spawnHealthItem(x: Int, y: Int) {
+        healthItemBitmap?.let { bitmap ->
+            healthItems.add(HealthItem(x, y, bitmap, 5))
+        }
+    }
+    
+    open fun updateHealthItems() {
+        healthItems.forEach { it.update() }
+        healthItems.removeAll { it.y > scrH }
+        
+        // Collect health items
+        val collectedHealthItems = healthItems.filter { CollisionUtils.isColliding(it.getRect(), player.getRect()) }
+        for (healthItem in collectedHealthItems) {
+            if (getLives() < 3) {
+                // This will be handled by the level-specific lives system
+                onHealthCollected?.invoke()
+            }
+        }
+        healthItems.removeAll(collectedHealthItems)
+    }
+    
+    open fun drawHealthItems(canvas: Canvas) {
+        healthItems.forEach { it.draw(canvas) }
+    }
+    
+    var onHealthCollected: (() -> Unit)? = null
+
+    // ----------- Gun Items System ------------
+    protected val items = mutableListOf<Item>()
+    
+    open fun spawnGunItem(x: Int, y: Int, itemType: ItemType) {
+        val itemBitmap = when (itemType) {
+            ItemType.FAST -> itemBitmaps[0]
+            ItemType.PARALLEL -> itemBitmaps[1]
+            ItemType.SPREAD -> itemBitmaps[2]
+            else -> itemBitmaps[0]
+        }
+        items.add(Item(x, y, itemBitmap, itemType, 12))
+    }
+    
+    open fun updateGunItems() {
+        items.forEach { it.update() }
+        items.removeAll { it.y > scrH }
+        
+        // Collect gun items
+        val collectedItems = items.filter { CollisionUtils.isColliding(it.getRect(), player.getRect()) }
+        for (item in collectedItems) {
+            pickedGunMode = when (item.type.ordinal) {
+                0 -> GunMode.FAST
+                1 -> GunMode.TRIPLE_PARALLEL
+                2 -> GunMode.TRIPLE_SPREAD
+                else -> null
+            }
+        }
+        items.removeAll(collectedItems)
+    }
+    
+    open fun drawGunItems(canvas: Canvas) {
+        items.forEach { it.draw(canvas) }
+    }
+
+    // ----------- Egg System ------------
+    protected val eggs = mutableListOf<Egg>()
+    
+    open fun updateEggs() {
+        eggs.forEach { it.update() }
+        eggs.removeAll { it.isOutOfScreen }
+        
+        // Check egg collision with player
+        val hitEgg = eggs.firstOrNull { CollisionUtils.isColliding(it.getRect(), player.getRect()) }
+        if (hitEgg != null) {
+            if (!player.hasShield) {
+                onEggHit?.invoke()
+            }
+            eggs.remove(hitEgg)
+        }
+    }
+    
+    open fun drawEggs(canvas: Canvas) {
+        eggs.forEach { it.draw(canvas) }
+    }
+    
+    var onEggHit: (() -> Unit)? = null
+
+    // ----------- Collision Logic ------------
+    open fun handleBulletChickenCollision(chickens: MutableList<Chicken>, bullets: MutableList<Bullet>, onEnemyKilled: (Chicken) -> Unit) {
+        val deadChickens = mutableListOf<Chicken>()
+        val usedBullets = mutableListOf<Bullet>()
+        
+        for (chicken in chickens) {
+            for (bullet in bullets) {
+                if (CollisionUtils.isColliding(chicken.getRect(), bullet.getRect())) {
+                    chicken.hp -= bullet.damage
+                    usedBullets.add(bullet)
+                    if (chicken.hp <= 0) {
+                        deadChickens.add(chicken)
+                        onEnemyKilled(chicken)
+                    }
+                }
+            }
+        }
+        chickens.removeAll(deadChickens)
+        bullets.removeAll(usedBullets)
+    }
+    
+    open fun handlePlayerChickenCollision(chickens: MutableList<Chicken>, onPlayerHit: () -> Unit, onEnemyKilled: (Chicken) -> Unit) {
+        val collidedChicken = chickens.firstOrNull { CollisionUtils.isColliding(it.getRect(), player.getRect()) }
+        if (collidedChicken != null) {
+            if (!player.hasShield) {
+                onPlayerHit()
+            }
+            onEnemyKilled(collidedChicken)
+            chickens.remove(collidedChicken)
+        }
+    }
+    
+    open fun handleBossCollision(boss: BossChicken?, bullets: MutableList<Bullet>, onPlayerHit: () -> Unit, onBossDefeated: () -> Unit) {
+        boss?.let { b ->
+            val usedBulletsBoss = mutableListOf<Bullet>()
+            for (bullet in bullets) {
+                if (CollisionUtils.isColliding(b.getRect(), bullet.getRect())) {
+                    b.hp -= bullet.damage
+                    usedBulletsBoss.add(bullet)
+                }
+            }
+            bullets.removeAll(usedBulletsBoss)
+            
+            if (CollisionUtils.isColliding(b.getRect(), player.getRect())) {
+                if (!player.hasShield) {
+                    onPlayerHit()
+                }
+            }
+            
+            if (b.hp <= 0) {
+                onBossDefeated()
+            }
+        }
+    }
+
     /** Gọi khi quái chết để random thả mana tại (x,y) */
     fun spawnMana(x: Int, y: Int, manaBitmap: Bitmap, speed: Int = 10) {
         manaItems.add(Item(x, y, manaBitmap, ItemType.MANA, speed))
@@ -141,6 +319,11 @@ abstract class BaseLevel(
             
             // Clear collections
             coins.clear()
+            shields.clear()
+            healthItems.clear()
+            items.clear()
+            eggs.clear()
+            manaItems.clear()
             
             // Subclasses should override this to cleanup their specific resources
             android.util.Log.d("BaseLevel", "Base level cleanup completed")

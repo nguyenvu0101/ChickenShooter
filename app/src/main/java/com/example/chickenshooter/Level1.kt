@@ -11,6 +11,8 @@ import com.example.chickenshooter.utils.CollisionUtils
 import com.example.chickenshooter.R
 import com.example.chickenshooter.utils.SpriteUtils
 import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
 
 class Level1(
     context: Context,
@@ -39,6 +41,19 @@ class Level1(
         (healthItemBitmap.height * 0.07).toInt(),
         true
     )
+    
+    init {
+        // Initialize BaseLevel systems
+        setShieldBitmap(scaledShieldBitmap)
+        setHealthItemBitmap(scaledHealthItemBitmap)
+        
+        // Set up callbacks
+        onHealthCollected = { lives++ }
+        onEggHit = { 
+            lives--
+            player.hit(playerExplosionFrames)
+        }
+    }
 
     private val playerExplosionFrames = SpriteUtils.splitSpriteSheet(
         context,
@@ -78,83 +93,82 @@ class Level1(
         coinBitmap.height + 5,
         true
     )
+
+    private val screenW = context.resources.displayMetrics.widthPixels
+    private val screenH = context.resources.displayMetrics.heightPixels
+
     private val allProjectiles = mutableListOf<ChickenProjectile>()
     internal val chickens = mutableListOf<Chicken>()
-    private val shields = mutableListOf<Shield>()
-    private val healthItems = mutableListOf<HealthItem>()
-    private val items = mutableListOf<Item>()
-    private val eggs = mutableListOf<Egg>()
     var boss: BossChicken? = null
-    private var isBossSpawned = false
 
-    // --- WAVE LOGIC ---
+    // --- WAVE / BOSS STATE ---
+    private var isBossSpawned = false
+    private var bossReady = false // (5) chỉ spawn boss sau khi clear wave
+
     private val wavePatterns = listOf(MoveType.BOUNCE, MoveType.SINE, MoveType.ZIGZAG)
     private var waveIndex = 0
-    private var spawningWave = false
+    private var waveTimer = 0
+    private var baseWaveInterval = 120 // ~2s @ 60fps, có thể tinh chỉnh theo waveIndex nếu cần
 
-    private val chickenSpeed = 5f
-    private val chickenHp = 3
+    // (2) cap số gà đang hoạt động
+    private val maxActiveChickens = 16
+
+    // --- DIFFICULTY / PLAYER STATE ---
+    private val baseChickenSpeed = 5f
+    private val baseChickenHp = 3
     private var lives = 3
     private var isLevelFinished = false
 
-    private var levelTimer = 0
-    private val levelDuration = 1 * 60
-    private var waveTimer = 0
-    private val waveInterval = 120 // số frame cho mỗi đợt (3 giây nếu 60fps)
     private var enemiesKilled = 0
-    private val requiredKills = 15 // Boss spawns after killing 15 enemies
+    private val requiredKills = 15 // mốc hạ quái để chuẩn bị gặp boss
+
     override var pickedGunMode: GunMode? = null
 
     override fun update(bullets: MutableList<Bullet>) {
         if (isLevelFinished) return
 
         scrollBackground?.update()
-        levelTimer++
-        waveTimer++
-        if (waveTimer >= waveInterval && !isBossSpawned) {
-            val pattern = wavePatterns[waveIndex % wavePatterns.size]
-            spawnWave(pattern)
-            waveIndex++
-            waveTimer = 0
-        }
-        // Spawn boss sau khi giết đủ số quái
-        if (!isBossSpawned && enemiesKilled >= requiredKills) {
-            boss = BossChicken(
-                x = (context.resources.displayMetrics.widthPixels - bossScaledBitmap.width) / 2,
-                y = 50,
-                bitmap = bossScaledBitmap,
-                hp = 200,
-                vx = 6,
-                vy = 3,
-                eggBitmap = eggBitmap,
-                screenWidth = context.resources.displayMetrics.widthPixels,
-                screenHeight = context.resources.displayMetrics.heightPixels
-            )
-            isBossSpawned = true
+
+        // === Điều khiển spawn wave ===
+        if (!isBossSpawned) {
+            // (5) Khi đủ kill → bossReady, KHÔNG spawn wave mới nữa
+            if (!bossReady && enemiesKilled >= requiredKills) {
+                bossReady = true
+            }
+
+            // Nếu chưa bossReady, tiếp tục spawn theo timer & theo cap số gà
+            if (!bossReady) {
+                waveTimer++
+                // có thể giảm nhịp dần nhẹ theo waveIndex (optional):
+                val dynamicInterval = max(80, baseWaveInterval - (waveIndex * 2)) // sàn 80
+                if (waveTimer >= dynamicInterval && chickens.size < maxActiveChickens) {
+                    spawnWave(wavePatterns[waveIndex % wavePatterns.size])
+                    waveIndex++
+                    waveTimer = 0
+                }
+            } else {
+                // bossReady == true → chờ clear hết gà rồi mới spawn boss
+                if (chickens.isEmpty() && boss == null) {
+                    spawnBoss()
+                }
+            }
         }
 
-        // --- SPAWN GÀ THEO ĐỢT, LẶP LẠI ---
-//        // Spawn wave mới khi hết quái, cho đến khi boss ra
-//        if (!isBossSpawned && chickens.isEmpty()) {
-//            val pattern = wavePatterns[waveIndex % wavePatterns.size]
-//            spawnWave(pattern)
-//            waveIndex++
-//        }
+        // === Update chickens + gom projectiles (đã fix double-update) ===
+        run {
+            val playerCenterX = player.x + player.getRect().width() / 2f
+            val playerCenterY = player.y + player.getRect().height() / 2f
 
+            for (chicken in chickens) {
+                chicken.update(playerCenterX, playerCenterY)
+                if (chicken.projectiles.isNotEmpty()) {
+                    allProjectiles.addAll(chicken.projectiles)
+                    chicken.projectiles.clear()
+                }
+            }
+        }
 
-        // Update chickens
-        val playerCenterX = player.x + player.getRect().width() / 2f
-        val playerCenterY = player.y + player.getRect().height() / 2f
-        chickens.forEach { chicken ->
-            chicken.update(playerCenterX, playerCenterY)
-        }
-// Kiểm tra va chạm giữa ChickenProjectile và Player
-        for (chicken in chickens) {
-            chicken.update(playerCenterX, playerCenterY)
-            // Chuyển tất cả projectiles của gà này sang allProjectiles
-            allProjectiles.addAll(chicken.projectiles)
-            chicken.projectiles.clear() // Xóa trong gà để không bị add lại ở frame sau
-        }
+        // === ChickenProjectile vs Player ===
         val hitProjectiles = allProjectiles.filter {
             CollisionUtils.isColliding(it.getRect(), player.getRect())
         }
@@ -166,127 +180,64 @@ class Level1(
         }
         allProjectiles.removeAll(hitProjectiles)
 
-        val it = allProjectiles.iterator()
-        while (it.hasNext()) {
-            val proj = it.next()
-            proj.update()
-            if (proj.y > context.resources.displayMetrics.heightPixels) {
-                it.remove()
-            }
+        // Update & cắt projectile out-of-screen
+        val projIt = allProjectiles.iterator()
+        while (projIt.hasNext()) {
+            val p = projIt.next()
+            p.update()
+            if (p.y > screenH) projIt.remove()
         }
-        // Bullet - Chicken collision
-        val deadChickens = mutableListOf<Chicken>()
-        val usedBullets = mutableListOf<Bullet>()
-        for (chicken in chickens) {
-            for (bullet in bullets) {
-                if (CollisionUtils.isColliding(chicken.getRect(), bullet.getRect())) {
-                    chicken.hp -= bullet.damage
-                    usedBullets.add(bullet)
-                    if (chicken.hp <= 0) {
-                        deadChickens.add(chicken)
-                        enemiesKilled++ // Increment kill counter
-                        if ((0..99).random() < 3) shields.add(Shield(chicken.x.toInt(), chicken.y.toInt(), scaledShieldBitmap, 5))
-                        if ((0..99).random() < 3) healthItems.add(HealthItem(chicken.x.toInt(), chicken.y.toInt(), scaledHealthItemBitmap, 5))
-                        if ((0..99).random() < 3) {
-                            val itemType = (0..2).random()
-                            items.add(Item(chicken.x.toInt(), chicken.y.toInt(), itemBitmaps[itemType], ItemType.values()[itemType], 12))
-                        }
-                        if (Math.random() < 0.03) spawnMana(chicken.x.toInt(), chicken.y.toInt(), manaBitmap, 8)
-                        spawnCoin(chicken.x.toInt(), chicken.y.toInt(), chicken.bitmap.width, chicken.bitmap.height)
-                    }
-                }
-            }
-        }
-        chickens.removeAll(deadChickens)
-        bullets.removeAll(usedBullets)
 
-        // Player - Chicken collision
-        val collidedChicken = chickens.firstOrNull { CollisionUtils.isColliding(it.getRect(), player.getRect()) }
-        if (collidedChicken != null) {
-            if (!player.hasShield) {
+        // === Bullet vs Chicken ===
+        handleBulletChickenCollision(chickens, bullets) { chicken ->
+            enemiesKilled++
+            if ((0..99).random() < 3) spawnShield(chicken.x.toInt(), chicken.y.toInt())
+            if ((0..99).random() < 3) spawnHealthItem(chicken.x.toInt(), chicken.y.toInt())
+            if ((0..99).random() < 3) {
+                val itemType = ItemType.values()[(0..2).random()]
+                spawnGunItem(chicken.x.toInt(), chicken.y.toInt(), itemType)
+            }
+            if (Math.random() < 0.03) spawnMana(chicken.x.toInt(), chicken.y.toInt(), manaBitmap, 8)
+            spawnCoin(chicken.x.toInt(), chicken.y.toInt(), chicken.bitmap.width, chicken.bitmap.height)
+        }
+
+        // === Player vs Chicken ===
+        handlePlayerChickenCollision(chickens, 
+            onPlayerHit = { 
                 lives--
                 player.hit(playerExplosionFrames)
-            }
-            enemiesKilled++ // Increment kill counter for collision
-            chickens.remove(collidedChicken)
-        }
+            },
+            onEnemyKilled = { enemiesKilled++ }
+        )
 
-        // Player - Item collection
-        val collectedItems = items.filter { CollisionUtils.isColliding(it.getRect(), player.getRect()) }
-        for (item in collectedItems) {
-            pickedGunMode = when (item.type.ordinal) {
-                0 -> GunMode.FAST
-                1 -> GunMode.TRIPLE_PARALLEL
-                2 -> GunMode.TRIPLE_SPREAD
-                else -> null
-            }
-        }
-        items.removeAll(collectedItems)
+        // === Update BaseLevel systems ===
+        updateGunItems()
 
-        // Update coins, mana, shields, health items
-        // Update coins, mana, shields, health items, and gun items
+        // === Update/cleanup đồ rơi & tài nguyên ===
         updateCoins()
         updateMana()
+        updateShields()
+        updateHealthItems()
 
-        items.forEach { it.update() }   // 🟢 thêm dòng này
-        items.removeAll { it.y > context.resources.displayMetrics.heightPixels }
-
-        shields.forEach { it.update() }
-        shields.removeAll { it.y > context.resources.displayMetrics.heightPixels }
-
-        healthItems.forEach { it.update() }
-        healthItems.removeAll { it.y > context.resources.displayMetrics.heightPixels }
-
-
-        // Collect shields
-        val collectedShields = shields.filter { CollisionUtils.isColliding(it.getRect(), player.getRect()) }
-        for (shield in collectedShields) {
-            player.activateShield(6000)
-        }
-        shields.removeAll(collectedShields)
-
-        // Collect health items
-        val collectedHealthItems = healthItems.filter { CollisionUtils.isColliding(it.getRect(), player.getRect()) }
-        for (healthItem in collectedHealthItems) {
-            if (lives < 3) lives++
-        }
-        healthItems.removeAll(collectedHealthItems)
-
-        // Boss logic
+        // === Boss logic ===
         boss?.let { b ->
             b.update(System.currentTimeMillis(), eggs)
-            val usedBulletsBoss = mutableListOf<Bullet>()
-            for (bullet in bullets) {
-                if (CollisionUtils.isColliding(b.getRect(), bullet.getRect())) {
-                    b.hp -= bullet.damage
-                    usedBulletsBoss.add(bullet)
-                }
-            }
-            bullets.removeAll(usedBulletsBoss)
-            if (CollisionUtils.isColliding(b.getRect(), player.getRect())) {
-                if (!player.hasShield) {
-                    lives--
-                    player.hit(playerExplosionFrames)
-                }
-            }
-            if (b.hp <= 0) {
+        }
+        handleBossCollision(boss, bullets,
+            onPlayerHit = { 
+                lives--
+                player.hit(playerExplosionFrames)
+            },
+            onBossDefeated = {
                 isLevelFinished = true
                 try {
                     onBossDefeated?.invoke()
-                } catch (_: Exception) {}
+                } catch (_: Exception) { }
             }
-        }
+        )
 
-        eggs.forEach { it.update() }
-        eggs.removeAll { it.isOutOfScreen }
-        val hitEgg = eggs.firstOrNull { CollisionUtils.isColliding(it.getRect(), player.getRect()) }
-        if (hitEgg != null) {
-            if (!player.hasShield) {
-                lives--
-                player.hit(playerExplosionFrames)
-            }
-            eggs.remove(hitEgg)
-        }
+        // === Egg từ boss ===
+        updateEggs()
 
         if (lives <= 0) isLevelFinished = true
 
@@ -294,18 +245,17 @@ class Level1(
     }
 
     /**
-     * Spawn 1 đợt gà: kiểu DOWN, SINE, ZIGZAG, lặp lại theo wavePatterns
+     * Spawn 1 đợt gà, có leo thang độ khó theo waveIndex
      */
     private fun spawnWave(moveType: MoveType) {
-        val numChickens = 8
-        val screenW = context.resources.displayMetrics.widthPixels
-        val screenH = context.resources.displayMetrics.heightPixels
-        val availableWidth = screenW - scaledChickenBitmap.width
-        val spacing = if (numChickens > 1)
-            availableWidth.toFloat() / (numChickens - 1)
-        else 0f
+        // (3) Scaling số lượng / speed / hp
+        val numChickens = min(16, 6 + min(2 + waveIndex, 10)) // 6 → 16
+        val speedScale = baseChickenSpeed + (waveIndex * 0.15f) // tăng nhẹ
+        val hpScale = baseChickenHp + (waveIndex / 3)           // mỗi 3 wave +1 HP
 
-        // Chọn đội hình dựa trên waveIndex (hoặc random nếu thích)
+        val availableWidth = screenW - scaledChickenBitmap.width
+        val spacing = if (numChickens > 1) availableWidth.toFloat() / (numChickens - 1) else 0f
+
         val formationType = waveIndex % 4
         when (formationType) {
             0 -> { // HÀNG NGANG ĐỀU
@@ -316,58 +266,58 @@ class Level1(
                             x = x,
                             y = 0f,
                             bitmap = scaledChickenBitmap,
-                            speed = chickenSpeed,
+                            speed = speedScale,
                             moveType = moveType,
-                            hp = chickenHp,
+                            hp = hpScale,
                             screenWidth = screenW,
                             screenHeight = screenH
                         )
                     )
                 }
             }
-            1 -> { // HÌNH CHỮ V NHỌN, ĐẦY ĐỦ 2 GÓC
+            1 -> { // HÌNH CHỮ V NHỌN
                 val mid = (numChickens - 1) / 2f
-                val vHeight = 200f // Độ cao chữ V, tăng số này cho V cao nhọn hơn
-                for (i in 0 until numChickens) {
-                    val x = i * spacing // Trải đều từ trái sang phải, luôn đủ 2 bên
-                    val dx = abs(i - mid)
-                    // Tỉ lệ nhọn: càng gần giữa càng cao, càng xa càng thấp
-                    val y = dx / mid * vHeight // Góc ngoài cùng y=Vmax, giữa y=0
-                    chickens.add(
-                        Chicken(
-                            x = x,
-                            y = y,
-                            bitmap = scaledChickenBitmap,
-                            speed = chickenSpeed,
-                            moveType = moveType,
-                            hp = chickenHp,
-                            screenWidth = screenW,
-                            screenHeight = screenH
-                        )
-                    )
-                }
-            }
-            2 -> { // DẠNG ZIGZAG
+                val vHeight = 200f + waveIndex * 6f // chữ V sâu dần
                 for (i in 0 until numChickens) {
                     val x = i * spacing
-                    val y = if (i % 2 == 0) 0f else 50f
+                    val dx = abs(i - mid)
+                    val y = dx / max(1f, mid) * vHeight
                     chickens.add(
                         Chicken(
                             x = x,
                             y = y,
                             bitmap = scaledChickenBitmap,
-                            speed = chickenSpeed,
+                            speed = speedScale,
                             moveType = moveType,
-                            hp = chickenHp,
+                            hp = hpScale,
                             screenWidth = screenW,
                             screenHeight = screenH
                         )
                     )
                 }
             }
-            3 -> { // HÌNH SIN ĐẦU (gà xuất hiện như sóng sin)
-                val amplitude = 60f
-                val freq = Math.PI / numChickens
+            2 -> { // ZIGZAG
+                val offset = 50f + waveIndex * 3f
+                for (i in 0 until numChickens) {
+                    val x = i * spacing
+                    val y = if (i % 2 == 0) 0f else offset
+                    chickens.add(
+                        Chicken(
+                            x = x,
+                            y = y,
+                            bitmap = scaledChickenBitmap,
+                            speed = speedScale,
+                            moveType = moveType,
+                            hp = hpScale,
+                            screenWidth = screenW,
+                            screenHeight = screenH
+                        )
+                    )
+                }
+            }
+            3 -> { // SIN ĐẦU
+                val amplitude = 60f + waveIndex * 2.5f
+                val freq = Math.PI / max(1, numChickens)
                 for (i in 0 until numChickens) {
                     val x = i * spacing
                     val y = amplitude * (1 + Math.sin(i * freq)).toFloat()
@@ -376,9 +326,9 @@ class Level1(
                             x = x,
                             y = y,
                             bitmap = scaledChickenBitmap,
-                            speed = chickenSpeed,
+                            speed = speedScale,
                             moveType = moveType,
-                            hp = chickenHp,
+                            hp = hpScale,
                             screenWidth = screenW,
                             screenHeight = screenH
                         )
@@ -388,22 +338,43 @@ class Level1(
         }
     }
 
+    private fun spawnBoss() {
+        boss = BossChicken(
+            x = (screenW - bossScaledBitmap.width) / 2,
+            y = 50,
+            bitmap = bossScaledBitmap,
+            hp = 200,
+            vx = 6,
+            vy = 3,
+            eggBitmap = scaledEggBitmap, // dùng bitmap đã scale
+            screenWidth = screenW,
+            screenHeight = screenH
+        )
+        isBossSpawned = true
+    }
+
     override fun draw(canvas: Canvas, bullets: List<Bullet>, backgroundY: Float) {
         scrollBackground?.draw(canvas)
-        player.draw(canvas)
+
+        // order vẽ: quái -> đạn -> đồ rơi -> khiên/máu -> trứng/đạn gà -> boss -> player -> UI
         chickens.forEach { it.draw(canvas) }
         bullets.forEach { it.draw(canvas) }
-        items.forEach { it.draw(canvas) }
-        shields.forEach { it.draw(canvas) }
-        healthItems.forEach { it.draw(canvas) }
-        player.draw(canvas)
-        drawCoins(canvas)
-        drawMana(canvas)
-        eggs.forEach { it.draw(canvas) }
+        drawGunItems(canvas)
+        drawShields(canvas)
+        drawHealthItems(canvas)
+        drawEggs(canvas)
         for (proj in allProjectiles) {
             proj.draw(canvas)
         }
         boss?.draw(canvas)
+
+        // vẽ player một lần
+        player.draw(canvas)
+
+        // UI: coin/mana & boss HP bar
+        drawCoins(canvas)
+        drawMana(canvas)
+
         boss?.let { b ->
             val barWidth = canvas.width * 2 / 3
             val barHeight = 30
@@ -411,6 +382,7 @@ class Level1(
             val top = 40
             val hpPercent = b.hp.toFloat() / b.maxHp
             val hpBarCurrentWidth = (barWidth * hpPercent).toInt()
+
             val paintBg = Paint().apply { color = Color.DKGRAY }
             val paintHp = Paint().apply { color = Color.RED }
             val paintBorder = Paint().apply {
@@ -423,39 +395,53 @@ class Level1(
                 textSize = 32f
                 textAlign = Paint.Align.CENTER
             }
-            canvas.drawRect(left.toFloat(), top.toFloat(), (left + barWidth).toFloat(), (top + barHeight).toFloat(), paintBg)
-            canvas.drawRect(left.toFloat(), top.toFloat(), (left + hpBarCurrentWidth).toFloat(), (top + barHeight).toFloat(), paintHp)
-            canvas.drawRect(left.toFloat(), top.toFloat(), (left + barWidth).toFloat(), (top + barHeight).toFloat(), paintBorder)
-            canvas.drawText("Boss HP: ${b.hp}/${b.maxHp}", canvas.width / 2f, (top + barHeight + 32).toFloat(), paintText)
+
+            canvas.drawRect(
+                left.toFloat(), top.toFloat(),
+                (left + barWidth).toFloat(), (top + barHeight).toFloat(), paintBg
+            )
+            canvas.drawRect(
+                left.toFloat(), top.toFloat(),
+                (left + hpBarCurrentWidth).toFloat(), (top + barHeight).toFloat(), paintHp
+            )
+            canvas.drawRect(
+                left.toFloat(), top.toFloat(),
+                (left + barWidth).toFloat(), (top + barHeight).toFloat(), paintBorder
+            )
+            canvas.drawText(
+                "Boss HP: ${b.hp}/${b.maxHp}",
+                canvas.width / 2f,
+                (top + barHeight + 32).toFloat(),
+                paintText
+            )
         }
     }
 
     override fun isCompleted(): Boolean = isLevelFinished
-    
     override fun isBossSpawned(): Boolean = isBossSpawned
 
     override fun reset() {
+        super.cleanup() // Clear BaseLevel systems
         chickens.clear()
-        items.clear()
-        eggs.clear()
-        coins.clear()
-        shields.clear()
         boss = null
         isBossSpawned = false
+        bossReady = false
         lives = 3
         isLevelFinished = false
         waveIndex = 0
-        levelTimer = 0
+        waveTimer = 0
         enemiesKilled = 0
         pickedGunMode = null
         saveCoinsToSystem()
     }
 
-    override fun canUseMissile(): Boolean = manaCount >= manaNeededForMissile && !isLevelFinished
+    override fun canUseMissile(): Boolean =
+        manaCount >= manaNeededForMissile && !isLevelFinished
 
     override fun consumeManaForMissile() {
         manaCount -= manaNeededForMissile
     }
+
     override fun getBackground(): Bitmap = background
     override fun getLives(): Int = lives
 
@@ -463,9 +449,7 @@ class Level1(
         try {
             super.cleanup()
             chickens.clear()
-            items.clear()
-            eggs.clear()
             boss = null
-        } catch (_: Exception) {}
+        } catch (_: Exception) { }
     }
 }
