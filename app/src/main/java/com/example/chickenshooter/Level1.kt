@@ -120,7 +120,7 @@ class Level1(
     private var isLevelFinished = false
 
     private var enemiesKilled = 0
-    private val requiredKills = 15 // mốc hạ quái để chuẩn bị gặp boss
+    private val requiredKills = 30 // mốc hạ quái để chuẩn bị gặp boss
 
     override var pickedGunMode: GunMode? = null
 

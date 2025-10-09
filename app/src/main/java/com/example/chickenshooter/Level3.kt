@@ -110,7 +110,7 @@ class Level3(
     private var waveTimer = 0
     private val waveInterval = 120 // số frame cho mỗi đợt (2 giây nếu 60fps)
     private var enemiesKilled = 0
-    private val requiredKills = 25 // Boss spawns after killing 25 enemies
+    private val requiredKills = 50 // Boss spawns after killing 25 enemies
 
     override var pickedGunMode: GunMode? = null
 
