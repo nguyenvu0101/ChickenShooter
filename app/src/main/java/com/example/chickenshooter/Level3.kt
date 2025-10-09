@@ -21,6 +21,7 @@ class Level3(
 ) : BaseLevel(context, player, bulletBitmap, itemBitmaps, coinBmp) {
 
     private val background = BitmapFactory.decodeResource(context.resources, backgroundId)
+    private var scaledBackground: Bitmap? = null
     private val chickenBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.chicken3)
     private val eggBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.egg)
     private val shieldBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.shield_item)
@@ -95,6 +96,9 @@ class Level3(
     internal val chickens = mutableListOf<Chicken>()
     var boss: BossChicken? = null
     private var isBossSpawned = false
+    
+    // Giới hạn số lượng gà để tránh lag
+    private val maxActiveChickens = 20
 
     // --- WAVE LOGIC ---
     private val wavePatterns = listOf(MoveType.BOUNCE, MoveType.SINE, MoveType.ZIGZAG)
@@ -126,8 +130,8 @@ class Level3(
         // Flag để tránh trừ nhiều mạng cùng lúc
         var playerHitThisFrame = false
         
-        // Spawn waves continuously (even with boss present)
-        if (waveTimer >= initialDelay) {
+        // Spawn waves continuously (even with boss present) - với giới hạn số lượng gà
+        if (waveTimer >= initialDelay && chickens.size < maxActiveChickens) {
             // Check if it's time for the next wave
             val timeForNextWave = initialDelay + (waveIndex * waveInterval)
             if (waveTimer >= timeForNextWave) {
@@ -142,7 +146,7 @@ class Level3(
             // Set waveTimer to start countdown for 5 seconds (300 frames at 60fps)
             waveTimer = -300
         }
-        if (waveTimer == -300 + 300 && waveIndex > 0) {
+        if (waveTimer == -300 + 300 && waveIndex > 0 && chickens.size < maxActiveChickens) {
             val pattern = wavePatterns[waveIndex % wavePatterns.size]
             spawnWave(pattern)
             waveIndex++
@@ -293,18 +297,20 @@ class Level3(
     }
 
     override fun draw(canvas: Canvas, bullets: List<Bullet>, backgroundY: Float) {
-        // Draw static background for Level3 (no scrolling)
-        val backgroundBitmap = getBackground()
-        val scaledBackground = Bitmap.createScaledBitmap(backgroundBitmap, canvas.width, canvas.height, true)
-        canvas.drawBitmap(scaledBackground, 0f, 0f, null)
+        // Draw static background for Level3 (no scrolling) - tối ưu bằng cách cache scaled background
+        if (scaledBackground == null) {
+            val backgroundBitmap = getBackground()
+            scaledBackground = Bitmap.createScaledBitmap(backgroundBitmap, canvas.width, canvas.height, true)
+        }
+        canvas.drawBitmap(scaledBackground!!, 0f, 0f, null)
         
+        // Vẽ player chỉ 1 lần
         player.draw(canvas)
         chickens.forEach { it.draw(canvas) }
         bullets.forEach { it.draw(canvas) }
         drawGunItems(canvas)
         drawShields(canvas)
         drawHealthItems(canvas)
-        player.draw(canvas)
         drawCoins(canvas)
         drawMana(canvas)
         drawEggs(canvas)
@@ -352,6 +358,13 @@ class Level3(
         waveTimer = 0
         enemiesKilled = 0
         pickedGunMode = null
+        // Reset scaled background để tạo lại với kích thước mới
+        scaledBackground?.let { 
+            if (!it.isRecycled) {
+                it.recycle()
+            }
+        }
+        scaledBackground = null
         saveCoinsToSystem()
     }
 
@@ -380,6 +393,13 @@ class Level3(
             super.cleanup()
             chickens.clear()
             boss = null
+            // Cleanup scaled background để tránh memory leak
+            scaledBackground?.let { 
+                if (!it.isRecycled) {
+                    it.recycle()
+                }
+            }
+            scaledBackground = null
         } catch (_: Exception) {}
     }
 }
