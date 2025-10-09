@@ -20,7 +20,7 @@ class BossChicken(
     private var lastEggShootTime: Long = 0
     val maxHp: Int = hp
 
-    // Sửa ở đây: chỉ có 1 hàm update!
+    // chỉ có 1 hàm update!
     fun update(currentTime: Long, eggs: MutableList<Egg>) {
         // Di chuyển boss trong nửa trên màn hình, đổi hướng khi chạm biên
         x += vx

@@ -25,7 +25,7 @@ class Player(
     // Trạng thái nhấp nháy sau khi nổ
     private var isBlinking = false
     private var blinkStartTime = 0L
-    private val blinkDuration = 5000L // 5 giây
+    private val blinkDuration = 5000L // 5 giây nhay
     private val blinkInterval = 200L
 
     // Paint khiên

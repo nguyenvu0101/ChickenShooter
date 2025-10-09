@@ -1165,15 +1165,14 @@ import kotlinx.coroutines.launch
                         val level = currentLevel as Level2
                         // Cập nhật số gà đã giết trước khi xóa
                         val killedChickens = level.chickens.size
-                        level.waveEnemiesKilled += killedChickens
                         level.enemiesKilled += killedChickens
                         level.chickens.clear()
                         level.boss?.let { boss ->
                             boss.hp -= 50
                             if (boss.hp < 0) boss.hp = 0
                         }
-                        // Reset wave timer để spawn wave tiếp theo
-                        level.waveTimer = 0
+                        // Reset spawn timer để spawn formation tiếp theo
+                        level.spawnTimer = 0
                     }
                     is Level3 -> {
                         val level = currentLevel as Level3

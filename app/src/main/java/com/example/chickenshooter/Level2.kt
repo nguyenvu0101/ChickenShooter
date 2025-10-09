@@ -95,17 +95,15 @@ class Level2(
     internal val chickens = mutableListOf<Chicken>()
     var boss: BossChicken? = null
 
-    // --- WAVE / BOSS STATE ---
+    // --- SPAWN / BOSS STATE ---
     private var isBossSpawned = false
-    private var currentWave = 0
-    private val maxWaves = 5 // Cố định 5 wave
-    private var allWavesCompleted = false // Đảm bảo tất cả 5 wave đã hoàn thành
-
-    private val wavePatterns = listOf(MoveType.BOUNCE, MoveType.SINE, MoveType.ZIGZAG, MoveType.V, MoveType.SPIRAL)
-    var waveTimer = 0
+    var spawnTimer = 0
+    private val spawnInterval = 120 // 2 giây (60 FPS * 2)
+    private val targetEnemies = 66 // Số gà cần tiêu diệt để spawn boss
+    private val formationPatterns = listOf(0, 1, 2, 3) // 4 formation patterns
 
     // (2) cap số gà đang hoạt động
-    private val maxActiveChickens = 16
+    private val maxActiveChickens = 32
 
     // --- DIFFICULTY / PLAYER STATE ---
     private val baseChickenSpeed = 5f
@@ -114,7 +112,6 @@ class Level2(
     private var isLevelFinished = false
 
     var enemiesKilled = 0
-    var waveEnemiesKilled = 0
 
     override var pickedGunMode: GunMode? = null
 
@@ -126,44 +123,20 @@ class Level2(
         // Flag để tránh trừ nhiều mạng cùng lúc
         var playerHitThisFrame = false
 
-        // === Điều khiển spawn wave ===
-        if (!isBossSpawned && currentWave < maxWaves) {
-            // Spawn wave hiện tại nếu chưa spawn
-            if (waveTimer == 0) {
-                startWave(currentWave)
-                waveTimer = 1
-            }
+        // === Điều khiển spawn formation ===
+        if (!isBossSpawned && enemiesKilled < targetEnemies) {
+            // Tăng spawn timer mỗi frame
+            spawnTimer++
             
-            // Tăng wave timer mỗi frame
-            waveTimer++
-            
-            // Kiểm tra điều kiện hoàn thành wave
-            val requiredKillsForWave = getRequiredKillsForWave(currentWave)
-            if (waveEnemiesKilled >= requiredKillsForWave && chickens.isEmpty()) {
-                // Wave hoàn thành, chuyển ngay sang wave tiếp theo
-                currentWave++
-                waveTimer = 0
-                waveEnemiesKilled = 0
-                
-                // Kiểm tra xem đã hoàn thành tất cả 5 wave chưa
-                if (currentWave >= maxWaves) {
-                    allWavesCompleted = true
-                }
+            // Spawn formation mỗi 2 giây
+            if (spawnTimer >= spawnInterval) {
+                val randomFormation = formationPatterns.random()
+                val randomCount = (8..16).random()
+                spawnFormation(randomFormation, randomCount)
+                spawnTimer = 0
             }
-            
-            // FALLBACK: Nếu wave bị stuck quá lâu (không có quái và không spawn), force spawn wave tiếp theo
-            if (chickens.isEmpty() && waveTimer > 300) { // 5 giây timeout
-                android.util.Log.w("Level2", "Wave stuck detected, forcing next wave. Current wave: $currentWave, Timer: $waveTimer")
-                currentWave++
-                waveTimer = 0
-                waveEnemiesKilled = 0
-                
-                if (currentWave >= maxWaves) {
-                    allWavesCompleted = true
-                }
-            }
-        } else if (allWavesCompleted && !isBossSpawned) {
-            // Đã hoàn thành tất cả 5 wave, kiểm tra tất cả quái đã bị tiêu diệt hết chưa
+        } else if (enemiesKilled >= targetEnemies && !isBossSpawned) {
+            // Đã đủ 66 gà, kiểm tra tất cả quái đã bị tiêu diệt hết chưa
             if (chickens.isEmpty() && boss == null) {
                 spawnBoss()
             }
@@ -203,13 +176,11 @@ class Level2(
             if (p.y > screenH) projIt.remove()
         }
 
-        // ... (tất cả logic xử lý items, bullets, collision, boss, ... giữ nguyên như trước) ...
-        // --- Dưới đây chỉ là các phần còn lại giữ nguyên, đã rút gọn cho phần spawn gà theo đợt là chính ---
+      
 
         // Bullet - Chicken collision
         handleBulletChickenCollision(chickens, bullets) { chicken ->
             enemiesKilled++
-            waveEnemiesKilled++
             if ((0..99).random() < 5) spawnShield(chicken.x.toInt(), chicken.y.toInt())
             if ((0..99).random() < 5) spawnHealthItem(chicken.x.toInt(), chicken.y.toInt())
             if ((0..99).random() < 4) {
@@ -268,36 +239,22 @@ class Level2(
         player.update()
     }
 
-    // === WAVE MANAGEMENT FUNCTIONS ===
-    private fun getRequiredKillsForWave(wave: Int): Int {
-        return when (wave) {
-            0 -> 6  // Wave 1: 6 gà (tăng x2 từ 3)
-            1 -> 10 // Wave 2: 10 gà (tăng x2 từ 5)
-            2 -> 14 // Wave 3: 14 gà (tăng x2 từ 7)
-            3 -> 18 // Wave 4: 18 gà (tăng x2 từ 9)
-            4 -> 24 // Wave 5: 24 gà (tăng x2 từ 12)
-            else -> 24
-        }
-    }
-    
-    private fun startWave(wave: Int) {
-        val moveType = wavePatterns[wave % wavePatterns.size]
-        spawnWave(moveType, wave)
-    }
-    
-
-    private fun spawnWave(moveType: MoveType, wave: Int) {
-        // Progressive difficulty scaling theo wave (0-4)
-        val numChickens = getRequiredKillsForWave(wave) // Số gà = số kill cần thiết
-        val speedScale = baseChickenSpeed + (wave * 0.8f) // Tăng 0.8f mỗi wave
-        val hpScale = baseChickenHp + (wave / 2) // Tăng HP mỗi 2 wave
+    // === FORMATION SPAWN FUNCTIONS ===
+    private fun spawnFormation(formationType: Int, numChickens: Int) {
+        // Random move type cho mỗi formation
+        val moveTypes = listOf(MoveType.BOUNCE, MoveType.SINE, MoveType.ZIGZAG, MoveType.V, MoveType.SPIRAL)
+        val moveType = moveTypes.random()
+        
+        // Progressive difficulty scaling theo số gà đã spawn
+        val difficultyScale = (enemiesKilled / 10f).coerceAtMost(5f) // Max 5x difficulty
+        val speedScale = baseChickenSpeed + (difficultyScale * 0.5f)
+        val hpScale = baseChickenHp + (difficultyScale / 2).toInt()
 
         val screenW = context.resources.displayMetrics.widthPixels
         val screenH = context.resources.displayMetrics.heightPixels
         val availableWidth = screenW - scaledChickenBitmap.width
         val spacing = if (numChickens > 1) availableWidth.toFloat() / (numChickens - 1) else 0f
 
-        val formationType = wave % 4
         when (formationType) {
             0 -> { // HÀNG NGANG ĐỀU
                 for (i in 0 until numChickens) {
@@ -318,7 +275,7 @@ class Level2(
             }
             1 -> { // HÌNH CHỮ V NHỌN
                 val mid = (numChickens - 1) / 2f
-                val vHeight = 200f + wave * 6f // chữ V sâu dần
+                val vHeight = 200f + difficultyScale * 10f
                 for (i in 0 until numChickens) {
                     val x = i * spacing
                     val dx = kotlin.math.abs(i - mid)
@@ -338,7 +295,7 @@ class Level2(
                 }
             }
             2 -> { // ZIGZAG
-                val offset = 50f + wave * 3f
+                val offset = 50f + difficultyScale * 5f
                 for (i in 0 until numChickens) {
                     val x = i * spacing
                     val y = if (i % 2 == 0) 0f else offset
@@ -357,7 +314,7 @@ class Level2(
                 }
             }
             3 -> { // SIN ĐẦU
-                val amplitude = 60f + wave * 2.5f
+                val amplitude = 60f + difficultyScale * 5f
                 val freq = Math.PI / kotlin.math.max(1, numChickens)
                 for (i in 0 until numChickens) {
                     val x = i * spacing
@@ -392,7 +349,7 @@ class Level2(
             eggBitmap = scaledEggBitmap, // dùng bitmap đã scale
             screenWidth = screenW,
             screenHeight = screenH,
-            eggCount = 4 // Level2: 4 tia
+            eggCount = 4 
         )
         isBossSpawned = true
     }
@@ -448,13 +405,10 @@ class Level2(
         chickens.clear()
         boss = null
         isBossSpawned = false
-        currentWave = 0
-        allWavesCompleted = false
+        spawnTimer = 0
         lives = 3
         isLevelFinished = false
-        waveTimer = 0
         enemiesKilled = 0
-        waveEnemiesKilled = 0
         pickedGunMode = null
         saveCoinsToSystem()
     }
