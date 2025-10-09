@@ -1184,8 +1184,8 @@ import kotlinx.coroutines.launch
                             boss.hp -= 50
                             if (boss.hp < 0) boss.hp = 0
                         }
-                        // Reset wave timer để spawn wave tiếp theo
-                        level.waveTimer = 0
+                        // Set missile cooldown 10 giây (600 frames)
+                        level.missileCooldown = 600
                     }
                 }
             }

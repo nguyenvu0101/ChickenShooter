@@ -116,6 +116,7 @@ class Level3(
     private val waveInterval = 120 // số frame cho mỗi đợt (2 giây nếu 60fps)
     private val initialDelay = 60 // Delay trước khi spawn wave đầu tiên (1 giây)
     var enemiesKilled = 0
+    var missileCooldown = 0 // Cooldown sau khi bắn tên lửa
     // Boss spawns immediately in Level3 (no kill requirement)
 
     override var pickedGunMode: GunMode? = null
@@ -130,8 +131,13 @@ class Level3(
         // Flag để tránh trừ nhiều mạng cùng lúc
         var playerHitThisFrame = false
         
+        // Giảm missile cooldown
+        if (missileCooldown > 0) {
+            missileCooldown--
+        }
+        
         // Spawn waves continuously (even with boss present) - với giới hạn số lượng gà
-        if (waveTimer >= initialDelay && chickens.size < maxActiveChickens) {
+        if (missileCooldown == 0 && waveTimer >= initialDelay && chickens.size < maxActiveChickens) {
             // Check if it's time for the next wave
             val timeForNextWave = initialDelay + (waveIndex * waveInterval)
             if (waveTimer >= timeForNextWave) {
@@ -139,17 +145,6 @@ class Level3(
                 spawnWave(pattern)
                 waveIndex++
             }
-        }
-        
-        // Spawn wave after 5 seconds delay if waveTimer was reset (after missile explosion)
-        if (waveTimer == 0 && waveIndex > 0) {
-            // Set waveTimer to start countdown for 5 seconds (300 frames at 60fps)
-            waveTimer = -300
-        }
-        if (waveTimer == -300 + 300 && waveIndex > 0 && chickens.size < maxActiveChickens) {
-            val pattern = wavePatterns[waveIndex % wavePatterns.size]
-            spawnWave(pattern)
-            waveIndex++
         }
         // Spawn boss immediately in Level3
         if (!isBossSpawned) {
@@ -355,6 +350,7 @@ class Level3(
         waveTimer = 0
         enemiesKilled = 0
         pickedGunMode = null
+        missileCooldown = 0
         // Reset scaled background để tạo lại với kích thước mới
         scaledBackground?.let { 
             if (!it.isRecycled) {
